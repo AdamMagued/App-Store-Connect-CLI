@@ -210,6 +210,16 @@ func TestRun_UnknownChildMapsLegacyAndAsymmetricPaths(t *testing.T) {
 		want  []string
 	}{
 		{
+			args:  []string{"builds", "release-notes"},
+			group: "asc builds",
+			want:  []string{"asc build-localizations list --build-id BUILD_ID", "asc builds test-notes list --build-id BUILD_ID"},
+		},
+		{
+			args:  []string{"builds", "whats-new"},
+			group: "asc builds",
+			want:  []string{"asc build-localizations list --build-id BUILD_ID", "asc builds test-notes list --build-id BUILD_ID"},
+		},
+		{
 			args:  []string{"app-info"},
 			group: "asc",
 			want:  []string{"asc apps info view --app APP_ID", "asc apps info list --app APP_ID"},
