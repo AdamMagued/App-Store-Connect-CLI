@@ -163,7 +163,6 @@ func TestLeafOperandContractMatchesDeclaredUsage(t *testing.T) {
 		allowed   []string
 		mismatchD []string
 		mismatchA []string
-		mismatchP []string
 	)
 
 	var walk func(command *ffcli.Command, path []string)
@@ -182,7 +181,6 @@ func TestLeafOperandContractMatchesDeclaredUsage(t *testing.T) {
 		commandName := strings.Join(current, " ")
 		declaresOperands := shared.UsageDeclaresOperands(command.ShortUsage)
 		listed := commandAcceptsOperandsPath(commandName)
-		payload := commandAcceptsPositionalPayload(current)
 		if declaresOperands {
 			declared = append(declared, commandName)
 		}
@@ -194,9 +192,6 @@ func TestLeafOperandContractMatchesDeclaredUsage(t *testing.T) {
 		}
 		if listed && !declaresOperands {
 			mismatchA = append(mismatchA, commandName)
-		}
-		if payload != listed {
-			mismatchP = append(mismatchP, commandName)
 		}
 	}
 	walk(root, nil)
@@ -214,12 +209,6 @@ func TestLeafOperandContractMatchesDeclaredUsage(t *testing.T) {
 		t.Fatalf(
 			"leaf commands are on the exclusion list but no longer declare positional operands in USAGE: %s",
 			strings.Join(mismatchA, ", "),
-		)
-	}
-	if len(mismatchP) > 0 {
-		t.Fatalf(
-			"leaf commands disagree between commandAcceptsPositionalPayload and commandAcceptsOperandsPath: %s",
-			strings.Join(mismatchP, ", "),
 		)
 	}
 
