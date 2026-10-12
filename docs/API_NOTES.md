@@ -176,7 +176,7 @@ Finance reports use Apple fiscal months (`YYYY-MM`), not calendar months.
 - Account-scoped v1 calls send `X-AP-Context: adAccountId=<AD_ACCOUNT_ID>;` resolved from `--ad-account`, `ASC_ADS_AD_ACCOUNT_ID`, profile `ad_account_id`, or root `ads.ad_account_id` when no profile is selected (`--org` / `ASC_ADS_ORG_ID` are never fallbacks).
 - `POST /v1/ad-accounts` omits `X-AP-Context`, whereas `GET`/`PUT /v1/ad-accounts/{id}` require `X-AP-Context: adAccountId=<id>;` matching `{id}`.
 - `asc ads auth login --network`, `asc ads auth status --validate`, and `asc ads auth discover` call `GET /v1/me` (and `GET /v1/acls` for `discover`) without `X-AP-Context` (`ASC_ADS_ACCESS_TOKEN` skips OAuth token exchange).
-- V1 report pagination belongs in the JSON request body (no `--paginate` flag). Negative keywords use a single v1 resource without bulk-delete; product-page countries/devices and custom impression-share report list/view have no one-command v1 replacement.
+- V1 report pagination belongs in the JSON request body (no `--paginate` flag). Negative keywords use a single v1 resource without bulk-delete; product-page countries/devices and custom impression-share report list/view have no one-command v1 replacement. The deprecated `asc ads v5 reports preset` warning follows `--level`: campaigns, ad groups, ads, keywords, and search terms point to their matching `asc ads reports apps` command; the two ad-group-specific keyword levels point to v1's consolidated `keywords` or `search-terms` report.
 
 ## Authentication & Rate Limiting
 
@@ -271,14 +271,28 @@ Finance reports use Apple fiscal months (`YYYY-MM`), not calendar months.
 
 ## Sparse Fieldsets Combined with Includes
 
-- `GET /v1/profiles` (`include=devices`) and `GET /v1/certificates` (`include=passTypeId`) populate `included` even when the relationship name is omitted from the primary `fields[...]` parameter, though Apple omits the per-resource `relationships` linkage object unless the relationship name is also included in `fields[...]` (live-verified).
+- `GET /v1/profiles` (`include=devices`) and `GET /v1/certificates` (`include=passTypeId`) populate `included` even when the relationship name is omitted from the primary `fields[...]` parameter (and `fields[devices]=...` still sparse-filters included devices), though Apple omits the per-resource `relationships` linkage object (including `relationships.passTypeId.data=null` on non-pass certificates) unless the relationship name is also included in `fields[...]` (live-verified).
 
 ## App Store Connect API 4.4.1
 
-- In-app purchases, subscriptions, and subscription groups use discrete version resources (`inAppPurchaseVersions`, `subscriptionVersions`, `subscriptionGroupVersions`) for v2 localizations, images, and `reviewSubmissionItems` (`asc iap versions ...`, `asc subscriptions versions ...`, `asc subscriptions groups versions ...`). Legacy v1 localization/image commands and `setup` localization flags emit deprecation warnings.
-- Removed in 4.0.0: `asc review items view` / `items-get` (use `asc review items list --submission "SUBMISSION_ID"`), `--state` on review item updates (use `--resolved` / `--removed` / `--clear-*`, with `--confirm` for `removed=true`), and `--item-type appStoreVersionExperimentV2` (use `appStoreVersionExperimentsV2`; `appCustomProductPages` is also rejected in favor of `appCustomProductPageVersions`).
-- `asc marketplace webhooks view` resolves by scanning all pages of the collection GET (no instance GET in 4.4.1).
-- Review-submission updates accept nullable `platform`, `submitted`, and `canceled` (`--confirm` required for `submitted=true` or `canceled=true`). On a 409 non-cancellable refusal, cancel commands read `GET /v1/reviewSubmissions/{id}` once to explain the current state.
+- Apple added discrete versions for in-app purchases, subscriptions, and subscription groups. Their v2 localizations and images are version-scoped; pass a version ID rather than the legacy product, subscription, or group ID.
+- Review submissions accept `inAppPurchaseVersions`, `subscriptionVersions`, and `subscriptionGroupVersions` through `reviewSubmissionItems`. The CLI preserves both relationship data and `included` resources in JSON output.
+- API 4.4.1 has no item-detail GET operation (`asc review items view` and `asc review items-get` were removed in 4.0.0); list a parent submission's items with `asc review items list --submission "SUBMISSION_ID"`.
+- API 4.4.1 has no marketplace-webhook instance GET operation; `asc marketplace webhooks view` selects the exact ID across all pages of the collection GET.
+- Review-item updates accept only nullable `resolved` and `removed` attributes (`--state` was removed in 4.0.0; use `--resolved`, `--removed`, or their matching `--clear-*` flags, with `--confirm` for `removed=true`).
+- Review-submission updates expose nullable `platform`, `submitted`, and `canceled` values plus matching `--clear-*` flags (`--confirm` required for `submitted=true` or `canceled=true`; false, null, and platform-only updates do not).
+- Canceling a review submission in a non-cancellable state returns HTTP 409 `Resource state is invalid.: Resource is not in cancellable state`. On that error path, `asc review submissions-cancel`, `asc review submissions-update --canceled=true`, and `asc submit cancel` read `GET /v1/reviewSubmissions/{id}` once to explain its state and next step while preserving the conflict exit code.
+- The create schema names its second experiment relationship `appStoreVersionExperimentV2`, while its linked resource type remains `appStoreVersionExperiments`; the CLI selector is `appStoreVersionExperimentsV2` (the 3.x `--item-type appStoreVersionExperimentV2` alias was removed in 4.0.0, and experiment treatments are not valid review-item create relationships). Review items require `appCustomProductPageVersions` (`appCustomProductPages` is rejected).
+- The product-scoped v1 localization, image, submission, and `sync` command families (`asc iap localizations|images|submit`, `asc subscriptions localizations|images|submit`, `asc subscriptions groups localizations|submit`, `asc subscriptions review submit|submit-group`) were removed in 5.0.0. `asc iap setup` and `asc subscriptions setup` remain supported and warn only when localization flags request legacy v1 localization steps.
+- Migration mapping:
+  - IAP localizations/images → create or resolve an IAP version, then use `asc iap versions localizations ...` / `asc iap versions images ...`.
+  - Subscription localizations/images → create or resolve a subscription version, then use `asc subscriptions versions localizations ...` / `asc subscriptions versions images ...`.
+  - Subscription group localizations → create or resolve a group version, then use `asc subscriptions groups versions localizations ...`.
+  - IAP / subscription / subscription-group submissions → `asc review items add --submission "SUBMISSION_ID" --item-type <inAppPurchaseVersions|subscriptionVersions|subscriptionGroupVersions> --item-id "<VERSION_ID>"`.
+- There is no one-command version-scoped replacement for the removed legacy localization `sync` leaves; reconcile entries through the matching version-localization `list`/`create`/`update`/`delete` commands.
+- A legacy IAP image file re-upload has no one-to-one v2 update: create the replacement version image, then delete the old version image if needed. Subscription v2 image updates do not expose the legacy checksum flag; use the version image upload workflow for a new file.
+- Exported `internal/asc.Client` methods targeting these legacy resources remain callable during the transition window, with `Deprecated:` comments on legacy submission and IAP localization/image entrypoints naming their version-scoped or review-item replacements.
+- Nullable v2 localization updates distinguish omitted, value, and JSON `null`; use the corresponding `--clear-*` flag for explicit clears.
 
 ## Developer Portal App Groups (web session)
 
