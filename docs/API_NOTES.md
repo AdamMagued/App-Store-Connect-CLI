@@ -232,8 +232,8 @@ Finance reports use Apple fiscal months (`YYYY-MM`), not calendar months.
 ## Developer Portal session (web session)
 
 - Bundle IDs, Services IDs, Website Push IDs, App Groups, iCloud containers, and agreements bootstrap CSRF and team context via `POST /services-account/QH65B2/account/listTeams.action`. Same-origin HTTPS redirects are enforced, and cookies/CSRF tokens are never logged.
-- `--developer-team` (ID or exact name) is accepted only on Developer Portal commands (`web bundle-ids`, `web service-ids`, `web website-push-ids`, `web app-groups`, `web icloud-containers`, `web agreements`), overriding `ASC_WEB_TEAM_ID`.
-- `asc web bundle-ids capabilities disable --bundle-id ID --capability CAPABILITY_ID [--confirm]` resolves the Bundle ID through `POST /services-account/v1/bundleIds` (`X-HTTP-Method-Override: GET`), reads `fields[bundleIds]=bundleIdCapabilities` + `include=bundleIdCapabilities,bundleIdCapabilities.capability` (`limit[bundleIdCapabilities]=50`), fails closed on pagination/linkage ambiguity, sends a single `PATCH /services-account/v1/bundleIds/{id}` with `enabled:false` on the target capability, and verifies disabled/removed state via read-back without retry (private proxy acceptance of the field/limit query remains live-unverified).
+- `--developer-team` (ID or exact name) is accepted only on Developer Portal commands (`web bundle-ids`, `web service-ids`, `web website-push-ids`, `web app-groups`, `web icloud-containers`, `web agreements`). An explicit selector overrides the cached team; without one, the cached team is reused if available, otherwise the selected App Store Connect provider is matched to a team. A single remaining team is used; multiple unmatched teams require `--developer-team`. There is no team-selection environment-variable fallback.
+- `asc web bundle-ids capabilities disable --bundle-id ID --capability PRIVATE_CLOUD_COMPUTE --confirm` requires confirmation and currently supports only `PRIVATE_CLOUD_COMPUTE`. It resolves the Bundle ID through `POST /services-account/v1/bundleIds` (`X-HTTP-Method-Override: GET`), reads `fields[bundleIds]=bundleIdCapabilities` + `include=bundleIdCapabilities,bundleIdCapabilities.capability` (`limit[bundleIdCapabilities]=50`), fails closed on pagination/linkage ambiguity, sends a single `PATCH /services-account/v1/bundleIds/{id}` with `enabled:false` on the target capability, and verifies disabled/removed state via read-back without retry (private proxy acceptance of the field/limit query remains live-unverified).
 
 ## Developer Portal Bundle ID reads (web session)
 
@@ -271,7 +271,8 @@ Finance reports use Apple fiscal months (`YYYY-MM`), not calendar months.
 
 ## Sparse Fieldsets Combined with Includes
 
-- `GET /v1/profiles` (`include=devices`) and `GET /v1/certificates` (`include=passTypeId`) populate `included` even when the relationship name is omitted from the primary `fields[...]` parameter (and `fields[devices]=...` still sparse-filters included devices), though Apple omits the per-resource `relationships` linkage object (including `relationships.passTypeId.data=null` on non-pass certificates) unless the relationship name is also included in `fields[...]` (live-verified).
+- `GET /v1/profiles` with `fields[profiles]=name&include=devices` populates `included` even though `devices` is omitted from the primary fieldset; `fields[devices]=...` still sparse-filters included devices. Apple omits per-profile `relationships` unless `devices` is also in `fields[profiles]` (live-verified).
+- `GET /v1/certificates` accepts `fields[certificates]=displayName&include=passTypeId`. The probed team had no `PASS_TYPE_ID` certificates, so `included` was absent with and without the sparse fieldset; population of related pass types remains unverified. Non-pass certificates expose `relationships.passTypeId.data=null` only when `passTypeId` is in the fieldset or no certificate fieldset is sent (live-verified; see [the canary record](API_CANARY_LOG.md#sparse-fieldsets-combined-with-includes)).
 
 ## App Store Connect API 4.4.1
 
