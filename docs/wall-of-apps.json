@@ -245,6 +245,11 @@
     "icon": "https://is1-ssl.mzstatic.com/image/thumb/Purple211/v4/29/91/b8/2991b84b-72ec-130e-071e-18f6fd175a44/AppIcon-0-0-1x_U007emarketing-0-11-0-85-220.png/512x512bb.jpg"
   },
   {
+    "app": "BTCtoMOON",
+    "link": "https://apps.apple.com/us/app/btctomoon/id6756674743?uo=4",
+    "icon": "https://is1-ssl.mzstatic.com/image/thumb/Purple221/v4/45/de/cb/45decbde-ac19-a049-67f4-2541a7e5ce48/AppIcon-0-0-1x_U007epad-0-1-85-220.png/512x512bb.jpg"
+  },
+  {
     "app": "BuddyTask: AI To Do List",
     "link": "https://apps.apple.com/us/app/buddytask-ai-to-do-list/id6758902036?uo=4",
     "icon": "https://is1-ssl.mzstatic.com/image/thumb/Purple221/v4/80/f5/84/80f584d0-6956-72b2-1294-8a5157c450b9/AppIcon-0-0-1x_U007emarketing-0-7-0-85-220.png/512x512bb.jpg"
@@ -283,6 +288,11 @@
     "app": "Cardstock: Sports Card Scanner",
     "link": "https://apps.apple.com/us/app/cardstock-sports-card-scanner/id1508888618?uo=4",
     "icon": "https://is1-ssl.mzstatic.com/image/thumb/Purple221/v4/3f/e4/a2/3fe4a277-9a47-455b-313b-5939c61f7258/AppIcon-0-0-1x_U007epad-0-1-0-85-220.png/512x512bb.jpg"
+  },
+  {
+    "app": "Carmory",
+    "link": "https://apps.apple.com/us/app/carmory/id6757974031?uo=4",
+    "icon": "https://is1-ssl.mzstatic.com/image/thumb/Purple211/v4/68/53/44/68534453-8146-fd14-cf29-0e987dbec900/AppIcon-0-0-1x_U007epad-0-1-85-220.jpeg/512x512bb.jpg"
   },
   {
     "app": "Cat on Chair",
@@ -1953,6 +1963,11 @@
     "app": "SquishPic: Image Compressor",
     "link": "https://apps.apple.com/us/app/squishpic-image-compressor/id6757522104?mt=12&uo=4",
     "icon": "https://is1-ssl.mzstatic.com/image/thumb/Purple221/v4/65/d1/ae/65d1ae1f-5f97-acb6-5458-79560afb84ab/AppIcon-0-0-85-220-0-0-5-0-2x.png/512x512bb.png"
+  },
+  {
+    "app": "Stars of AI",
+    "link": "https://apps.apple.com/us/app/stars-of-ai/id6760822530?uo=4",
+    "icon": "https://is1-ssl.mzstatic.com/image/thumb/Purple221/v4/43/07/fe/4307fe6d-8f13-39f8-a508-377ff76b9496/AppIcon-0-0-1x_U007epad-0-1-85-220.jpeg/512x512bb.jpg"
   },
   {
     "app": "StartUp Business: Tycoon Sim",
