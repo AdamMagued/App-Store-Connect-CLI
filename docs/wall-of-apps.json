@@ -65,6 +65,11 @@
     "icon": "https://is1-ssl.mzstatic.com/image/thumb/Purple211/v4/6a/d6/06/6ad6063e-a7c4-ef18-dd4e-afecc0c3ba14/AppIcon_Akari-0-0-1x_U007epad-0-1-sRGB-85-220.png/512x512bb.jpg"
   },
   {
+    "app": "Alarm One: Shift Alarm Clock",
+    "link": "https://apps.apple.com/us/app/alarm-one-shift-alarm-clock/id6748434148?uo=4",
+    "icon": "https://is1-ssl.mzstatic.com/image/thumb/Purple211/v4/4a/2b/43/4a2b43de-4feb-4758-e0be-5d5fee24f68e/icon-0-0-1x_U007epad-0-1-0-85-220.png/512x512bb.jpg"
+  },
+  {
     "app": "Aletheon",
     "link": "https://apps.apple.com/us/app/aletheon/id6761150392?uo=4",
     "icon": "https://is1-ssl.mzstatic.com/image/thumb/Purple211/v4/32/b3/7a/32b37a05-8f82-eb89-4388-c0169410b7c3/AppIcon-0-0-1x_U007epad-0-1-0-85-220.jpeg/512x512bb.jpg"
@@ -1002,6 +1007,11 @@
     "icon": "https://is1-ssl.mzstatic.com/image/thumb/Purple211/v4/a2/73/bf/a273bfba-ccb0-61ed-4c7e-0c8c49c3347a/Inline-0-0-85-220-0-0-6-0-2x.png/512x512bb.png"
   },
   {
+    "app": "Inquizitive: Smart AI Quiz",
+    "link": "https://apps.apple.com/us/app/inquizitive-smart-ai-quiz/id6817424653?uo=4",
+    "icon": "https://is1-ssl.mzstatic.com/image/thumb/Purple211/v4/a5/5b/30/a55b305a-576b-e07a-386a-a111f736ae94/AppIcon-0-0-1x_U007epad-0-1-85-220.png/512x512bb.jpg"
+  },
+  {
     "app": "Intake: Calorie Counter & Log",
     "link": "https://apps.apple.com/us/app/intake-calorie-counter-log/id6757768955?uo=4",
     "icon": "https://is1-ssl.mzstatic.com/image/thumb/Purple221/v4/9c/df/d1/9cdfd107-e11a-acc5-4859-45921df8cb0e/intake-0-0-1x_U007epad-0-1-85-220.png/512x512bb.jpg"
@@ -1040,6 +1050,11 @@
     "app": "Jurni: Trip Planner",
     "link": "https://apps.apple.com/us/app/jurni-trip-planner/id6759559463?uo=4",
     "icon": "https://is1-ssl.mzstatic.com/image/thumb/Purple221/v4/67/19/a1/6719a179-73ef-1266-5682-bf1c944f98b9/AppIcon-0-0-1x_U007ephone-0-1-85-220.png/512x512bb.jpg"
+  },
+  {
+    "app": "Karacho: Digital Speedometer",
+    "link": "https://apps.apple.com/us/app/karacho-digital-speedometer/id6819278673?uo=4",
+    "icon": "https://is1-ssl.mzstatic.com/image/thumb/Purple211/v4/bb/b8/ee/bbb8ee0b-b055-b104-0d09-a0cc594d7977/AppIcon-0-0-1x_U007ephone-0-1-85-220.png/512x512bb.jpg"
   },
   {
     "app": "kardfolio: Card Benefits",
@@ -1115,6 +1130,11 @@
     "app": "Lifterly",
     "link": "https://apps.apple.com/us/app/lifterly/id6753913630?uo=4",
     "icon": "https://is1-ssl.mzstatic.com/image/thumb/Purple211/v4/78/df/1e/78df1e26-9a13-20e6-3b37-df45306a684e/app-0-0-1x_U007ephone-0-1-sRGB-85-220.png/512x512bb.jpg"
+  },
+  {
+    "app": "Lights Out - Mafia Table Game",
+    "link": "https://apps.apple.com/us/app/lights-out-mafia-table-game/id6785313453?uo=4",
+    "icon": "https://is1-ssl.mzstatic.com/image/thumb/Purple221/v4/f4/77/3a/f4773ae1-5766-3c78-829c-df59b60f2c7f/AppIcon-0-0-1x_U007ephone-0-1-85-220.png/512x512bb.jpg"
   },
   {
     "app": "LilyFM",
@@ -1495,6 +1515,11 @@
     "icon": "https://is1-ssl.mzstatic.com/image/thumb/Purple211/v4/fb/cb/04/fbcb0465-34d5-c49f-a341-6df00efd1fc2/AppIcon-0-0-1x_U007ephone-0-1-85-220.png/512x512bb.jpg"
   },
   {
+    "app": "Photo Memo+: Memory Game",
+    "link": "https://apps.apple.com/us/app/photo-memo-memory-game/id1607756335?uo=4",
+    "icon": "https://is1-ssl.mzstatic.com/image/thumb/Purple221/v4/d5/b0/dd/d5b0dd15-8ea1-d153-da8c-ac8d3533fff9/AppIcon-0-0-1x_U007emarketing-0-11-0-85-220.png/512x512bb.jpg"
+  },
+  {
     "app": "Photo2Calendar Scanner Planner",
     "link": "https://apps.apple.com/us/app/photo2calendar-scanner-planner/id6736373394?uo=4",
     "icon": "https://is1-ssl.mzstatic.com/image/thumb/Purple211/v4/6c/e0/2f/6ce02fb3-6c3a-902e-3e15-ca189da30cfe/AppIcon-0-0-1x_U007epad-0-1-85-220.png/512x512bb.jpg"
@@ -1553,6 +1578,11 @@
     "app": "Planit: Gamified Daily Planner",
     "link": "https://apps.apple.com/us/app/planit-gamified-daily-planner/id6759006335",
     "icon": "https://is1-ssl.mzstatic.com/image/thumb/Purple211/v4/94/b1/94/94b194db-586e-18bf-bc6f-b7a7acaed8bb/testiconPlanit-0-0-1x_U007ephone-0-1-sRGB-85-220.png/512x512bb.jpg"
+  },
+  {
+    "app": "PlayTales: Audiobooks for Kids",
+    "link": "https://apps.apple.com/us/app/playtales-audiobooks-for-kids/id6444850972?uo=4",
+    "icon": "https://is1-ssl.mzstatic.com/image/thumb/Purple211/v4/36/4d/38/364d38b5-d054-48f5-0528-3e61a266be29/AppIcon-0-0-1x_U007epad-0-1-85-220.png/512x512bb.jpg"
   },
   {
     "app": "Plinky",
@@ -1838,6 +1868,11 @@
     "app": "Scap: Screenshot & Markup Edit",
     "link": "https://apps.apple.com/us/app/scap-screenshot-markup-edit/id6758053530?mt=12&uo=4",
     "icon": "https://is1-ssl.mzstatic.com/image/thumb/Purple211/v4/95/ed/7c/95ed7cad-90a7-5d3b-8742-444542d3dc55/AppIcon-0-0-85-220-0-0-5-0-2x-0-0-0.png/512x512bb.png"
+  },
+  {
+    "app": "Scenio: Real Scenes to Speak",
+    "link": "https://apps.apple.com/us/app/scenio-real-scenes-to-speak/id6782251685?uo=4",
+    "icon": "https://is1-ssl.mzstatic.com/image/thumb/Purple211/v4/72/e6/99/72e69987-205d-397d-1644-136b36033fe2/AppIcon-0-0-1x_U007emarketing-0-8-0-sRGB-85-220.png/512x512bb.jpg"
   },
   {
     "app": "Scooter Tools",
@@ -2278,6 +2313,11 @@
     "app": "Tunable – Tuner & Metronome",
     "link": "https://apps.apple.com/us/app/tunable-tuner-metronome/id608540795?uo=4",
     "icon": "https://is1-ssl.mzstatic.com/image/thumb/Purple115/v4/93/bd/99/93bd992d-825e-df5d-eedb-550eb17895c5/AppIcon-1x_U007emarketing-0-10-0-85-220.png/512x512bb.jpg"
+  },
+  {
+    "app": "TV Graphs: Season Ratings",
+    "link": "https://apps.apple.com/us/app/tv-graphs-season-ratings/id6804961357?uo=4",
+    "icon": "https://is1-ssl.mzstatic.com/image/thumb/Purple211/v4/29/b7/b8/29b7b8fa-4bc1-1a38-0ac7-a6c113e03b6f/AppIcon-0-0-1x_U007epad-0-1-85-220.png/512x512bb.jpg"
   },
   {
     "app": "TV Show Tracker",
