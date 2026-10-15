@@ -1495,11 +1495,6 @@
     "icon": "https://is1-ssl.mzstatic.com/image/thumb/Purple211/v4/c9/57/6e/c9576e6d-948b-2e9f-fded-18261f597999/AppIcon-0-0-1x_U007epad-0-1-85-220.png/512x512bb.jpg"
   },
   {
-    "app": "Phoo - Public Toilet Finder",
-    "link": "https://apps.apple.com/us/app/public-toilet-finder-phoo/id6804638882?uo=4",
-    "icon": "https://is1-ssl.mzstatic.com/image/thumb/Purple221/v4/66/93/26/66932699-6d97-3ea6-1638-157ad93bcc85/AppIcon-0-0-1x_U007ephone-0-1-85-220.png/512x512bb.jpg"
-  },
-  {
     "app": "Photo Cleanup: Swiper",
     "link": "https://apps.apple.com/us/app/photo-cleanup-swiper/id6752829792?uo=4",
     "icon": "https://is1-ssl.mzstatic.com/image/thumb/Purple221/v4/9f/00/7a/9f007a81-ffab-5968-ae29-35add00577b1/AppIcon-0-0-1x_U007epad-0-1-85-220.png/512x512bb.jpg"
@@ -1678,6 +1673,11 @@
     "app": "Protocol Zero: Sleep Sounds",
     "link": "https://apps.apple.com/us/app/protocol-zero-sleep-sounds/id6755014746?uo=4",
     "icon": "https://is1-ssl.mzstatic.com/image/thumb/Purple221/v4/38/1c/5b/381c5b87-8ab7-7351-138b-0cef5c4d5084/AppIcon-1x_U007ephone-0-1-85-220-0.jpeg/512x512bb.jpg"
+  },
+  {
+    "app": "Public Toilet Finder - Phoo",
+    "link": "https://apps.apple.com/us/app/public-toilet-finder-phoo/id6804638882?uo=4",
+    "icon": "https://is1-ssl.mzstatic.com/image/thumb/Purple221/v4/66/93/26/66932699-6d97-3ea6-1638-157ad93bcc85/AppIcon-0-0-1x_U007ephone-0-1-85-220.png/512x512bb.jpg"
   },
   {
     "app": "QELM",
