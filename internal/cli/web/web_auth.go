@@ -1486,6 +1486,7 @@ Manage Apple web-session authentication used by "asc web" commands.
 			WebAuthLoginCommand(),
 			WebAuthStatusCommand(),
 			WebAuthCapabilitiesCommand(),
+			WebAuthMessagesCodeCommand(),
 			WebAuthExportCommand(),
 			WebAuthImportCommand(),
 			WebAuthLogoutCommand(),
@@ -1548,7 +1549,10 @@ Examples:
   asc web auth login --apple-id "user@example.com" --public-provider-id "Z4N6A5FQKW"
 
   # Non-interactive (agents, CI): supply the password and a 2FA code source
-  %s %s='osascript /path/to/get-apple-2fa-code.scpt' asc web auth login --apple-id "user@example.com"`,
+  %s %s='osascript /path/to/get-apple-2fa-code.scpt' asc web auth login --apple-id "user@example.com"
+
+  # macOS: read an SMS code forwarded to this Mac's Messages app
+  asc web auth login --apple-id "user@example.com" --two-factor-code-command "asc web auth messages-code"`,
 			webAppleIDEnv,
 			webPasswordEnvDisplay(),
 			webDontStorePasswordEnv,
