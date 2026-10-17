@@ -2647,7 +2647,6 @@ func TestTwoFactorSubmitFailureDistinguishesFinalizationFromVerification(t *test
 		name               string
 		err                error
 		afterPhoneDelivery bool
-		phoneCode          bool
 		want               string
 	}{
 		{
@@ -2671,23 +2670,10 @@ func TestTwoFactorSubmitFailureDistinguishesFinalizationFromVerification(t *test
 			err:  fmt.Errorf("trusted-device 2fa failed (status 400): %w", webcore.ErrTwoFactorCodeRejected),
 			want: "2fa verification failed: Apple rejected the verification code: trusted-device 2fa failed (status 400): two-factor code rejected",
 		},
-		{
-			name:      "apple rejected phone code",
-			err:       fmt.Errorf("phone 2fa failed (status 400, codes=[-21669]): %w", webcore.ErrTwoFactorCodeRejected),
-			phoneCode: true,
-			want:      "2fa verification failed: Apple rejected the verification code; enter the code from the latest SMS, not one shown on a trusted device: phone 2fa failed (status 400, codes=[-21669]): two-factor code rejected",
-		},
-		{
-			name:               "apple rejected phone fallback code",
-			err:                fmt.Errorf("phone 2fa failed (status 400): %w", webcore.ErrTwoFactorCodeRejected),
-			afterPhoneDelivery: true,
-			phoneCode:          true,
-			want:               "2fa verification failed after switching to phone delivery: Apple rejected the verification code; enter the code from the latest SMS, not one shown on a trusted device: phone 2fa failed (status 400): two-factor code rejected",
-		},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			got := twoFactorSubmitFailure(tc.err, tc.afterPhoneDelivery, tc.phoneCode)
+			got := twoFactorSubmitFailure(tc.err, tc.afterPhoneDelivery, false)
 			if got.Error() != tc.want {
 				t.Fatalf("expected %q, got %q", tc.want, got.Error())
 			}

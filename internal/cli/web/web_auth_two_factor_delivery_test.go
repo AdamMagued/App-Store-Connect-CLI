@@ -2,6 +2,7 @@ package web
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"strings"
 	"testing"
@@ -121,6 +122,41 @@ func TestLoginWithOptionalTwoFactorHintsPhoneIDForAmbiguousSMSPhone(t *testing.T
 	}
 }
 
+func TestLoginWithOptionalTwoFactorRejectedPhoneCodeGuidanceFollowsDeliveryMode(t *testing.T) {
+	tests := []struct {
+		mode     string
+		wantHint bool
+	}{
+		{mode: "sms", wantHint: true},
+		{mode: "voice", wantHint: false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.mode, func(t *testing.T) {
+			t.Setenv(webTwoFactorMethodEnv, "")
+			t.Setenv(webTwoFactorPhoneIDEnv, "")
+			stubTwoFactorDeliveryLogin(t)
+			prepareTwoFactorChallengeFn = func(ctx context.Context, session *webcore.AuthSession) (*webcore.TwoFactorChallenge, error) {
+				session.SetPreparedTwoFactorState("phone", 1, tt.mode, "+1 (•••) •••-••11", false)
+				return &webcore.TwoFactorChallenge{Method: "phone", Destination: "+1 (•••) •••-••11"}, nil
+			}
+			submitTwoFactorCodeFn = func(ctx context.Context, session *webcore.AuthSession, code string) error {
+				return fmt.Errorf("phone 2fa failed (status 400, codes=[-21669]): %w", webcore.ErrTwoFactorCodeRejected)
+			}
+
+			_, err := loginWithOptionalTwoFactor(context.Background(), "user@example.com", "secret", "", nil, readStubTwoFactorCode, "read-code")
+			if err == nil {
+				t.Fatal("expected rejected code error")
+			}
+			if !strings.Contains(err.Error(), "2fa verification failed: Apple rejected the verification code") {
+				t.Fatalf("expected readable rejection, got %v", err)
+			}
+			if got := strings.Contains(err.Error(), "latest SMS"); got != tt.wantHint {
+				t.Fatalf("SMS hint present = %v, want %v; error = %v", got, tt.wantHint, err)
+			}
+		})
+	}
+}
+
 func TestResolveTwoFactorPreference(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -144,7 +180,7 @@ func TestResolveTwoFactorPreference(t *testing.T) {
 			for key, value := range tt.env {
 				t.Setenv(key, value)
 			}
-			got, err := resolveTwoFactorPreference(tt.method, tt.phoneID)
+			got, err := resolveTwoFactorPreference(tt.method, tt.phoneID, tt.phoneID != 0)
 			if err != nil {
 				t.Fatalf("resolveTwoFactorPreference() error = %v", err)
 			}

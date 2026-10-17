@@ -761,7 +761,7 @@ func storedWebPasswordStatus(appleID string) bool {
 // code and then failing the App Store Connect session bootstrap is reported as a
 // finalization failure carrying the HTTP status, because calling it a
 // verification failure misleads users into retrying a code that was accepted.
-func twoFactorSubmitFailure(err error, afterPhoneDelivery, phoneCode bool) error {
+func twoFactorSubmitFailure(err error, afterPhoneDelivery, smsCode bool) error {
 	stage := "2fa verification failed"
 	var finalizeErr *webcore.TwoFactorFinalizationError
 	if errors.As(err, &finalizeErr) {
@@ -773,10 +773,10 @@ func twoFactorSubmitFailure(err error, afterPhoneDelivery, phoneCode bool) error
 	if !errors.Is(err, webcore.ErrTwoFactorCodeRejected) {
 		return fmt.Errorf("%s: %w", stage, err)
 	}
-	// Apple can still show a code on trusted devices during phone delivery,
+	// Apple can still show a code on trusted devices during SMS delivery,
 	// but only the texted code verifies against the phone endpoint.
 	reason := "Apple rejected the verification code"
-	if phoneCode {
+	if smsCode {
 		reason += "; enter the code from the latest SMS, not one shown on a trusted device"
 	}
 	err = fmt.Errorf("%s: %s: %w", stage, reason, err)
@@ -899,6 +899,10 @@ func loginWithOptionalTwoFactorUsing(ctx context.Context, progressMessage, apple
 				return submitTwoFactorCodeFn(verifyCtx, session, code)
 			})
 		}
+		// Phone delivery can also be a voice call, so only SMS gets SMS guidance.
+		smsDelivery := func() bool {
+			return session.TwoFactorMethod() == appleauth.TwoFactorMethodPhone && session.TwoFactorPhoneMode() == appleauth.TwoFactorDeliverySMS
+		}
 		if err := submitCode(code); err != nil {
 			var phoneCodeRequestedErr *appleauth.PhoneCodeRequestedError
 			if errors.As(err, &phoneCodeRequestedErr) {
@@ -909,11 +913,11 @@ func loginWithOptionalTwoFactorUsing(ctx context.Context, progressMessage, apple
 					return nil, codeErr
 				}
 				if err := submitCode(resolvedCode); err != nil {
-					return nil, twoFactorSubmitFailure(err, true, true)
+					return nil, twoFactorSubmitFailure(err, true, smsDelivery())
 				}
 				return session, nil
 			}
-			return nil, twoFactorSubmitFailure(err, false, challenge != nil && challenge.IsPhoneMethod())
+			return nil, twoFactorSubmitFailure(err, false, smsDelivery())
 		}
 		return session, nil
 	}
