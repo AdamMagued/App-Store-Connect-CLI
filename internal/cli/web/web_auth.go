@@ -761,7 +761,7 @@ func storedWebPasswordStatus(appleID string) bool {
 // code and then failing the App Store Connect session bootstrap is reported as a
 // finalization failure carrying the HTTP status, because calling it a
 // verification failure misleads users into retrying a code that was accepted.
-func twoFactorSubmitFailure(err error, afterPhoneDelivery bool) error {
+func twoFactorSubmitFailure(err error, afterPhoneDelivery, smsCode bool) error {
 	stage := "2fa verification failed"
 	var finalizeErr *webcore.TwoFactorFinalizationError
 	if errors.As(err, &finalizeErr) {
@@ -770,14 +770,25 @@ func twoFactorSubmitFailure(err error, afterPhoneDelivery bool) error {
 	if afterPhoneDelivery {
 		stage += " after switching to phone delivery"
 	}
-	err = fmt.Errorf("%s: %w", stage, err)
-	if errors.Is(err, webcore.ErrTwoFactorCodeRejected) {
-		return shared.WithDiagnostic(err, shared.DiagnosticAuthenticationRejected, "")
+	if !errors.Is(err, webcore.ErrTwoFactorCodeRejected) {
+		return fmt.Errorf("%s: %w", stage, err)
 	}
-	return err
+	// Apple can still show a code on trusted devices during SMS delivery,
+	// but only the texted code verifies against the phone endpoint.
+	reason := "Apple rejected the verification code"
+	if smsCode {
+		reason += "; enter the code from the latest SMS, not one shown on a trusted device"
+	}
+	err = fmt.Errorf("%s: %s: %w", stage, reason, err)
+	return shared.WithDiagnostic(err, shared.DiagnosticAuthenticationRejected, "")
 }
 
 func loginWithOptionalTwoFactorUsing(ctx context.Context, progressMessage, appleID, password, twoFactorCode string, loginFn func(context.Context, webcore.LoginCredentials) (*webcore.AuthSession, error), twoFactorStarted func(), readCommandCode twoFactorCodeCommandReader, twoFactorCodeCommand ...string) (*webcore.AuthSession, error) {
+	// Read before the timeout strip below, which drops layered context values.
+	twoFactorPreference, err := twoFactorPreferenceForSignIn(ctx)
+	if err != nil {
+		return nil, err
+	}
 	// Credential/keychain prompts may consume the initial command budget.
 	ctx, cancel := shared.ContextWithTimeout(shared.ContextWithoutTimeout(ctx))
 	defer cancel()
@@ -806,8 +817,13 @@ func loginWithOptionalTwoFactorUsing(ctx context.Context, progressMessage, apple
 		if code == "" && command == "" && !twoFactorPromptAvailableFn() {
 			return nil, twoFactorInputError(errNoTwoFactorCodeSource, shared.DiagnosticRequiredInputMissing)
 		}
+		session.SetTwoFactorPreference(twoFactorPreference)
 		challenge, prepErr := prepareTwoFactorChallengeFn(ctx, session)
 		if prepErr != nil {
+			var phoneSelection *appleauth.TrustedPhoneSelectionError
+			if errors.As(prepErr, &phoneSelection) {
+				return nil, fmt.Errorf("2fa challenge setup failed: %w; pass --two-factor-phone-id or set %s", prepErr, webTwoFactorPhoneIDEnv)
+			}
 			return nil, fmt.Errorf("2fa challenge setup failed: %w", prepErr)
 		}
 
@@ -883,6 +899,10 @@ func loginWithOptionalTwoFactorUsing(ctx context.Context, progressMessage, apple
 				return submitTwoFactorCodeFn(verifyCtx, session, code)
 			})
 		}
+		// Phone delivery can also be a voice call, so only SMS gets SMS guidance.
+		smsDelivery := func() bool {
+			return session.TwoFactorMethod() == appleauth.TwoFactorMethodPhone && session.TwoFactorPhoneMode() == appleauth.TwoFactorDeliverySMS
+		}
 		if err := submitCode(code); err != nil {
 			var phoneCodeRequestedErr *appleauth.PhoneCodeRequestedError
 			if errors.As(err, &phoneCodeRequestedErr) {
@@ -893,11 +913,11 @@ func loginWithOptionalTwoFactorUsing(ctx context.Context, progressMessage, apple
 					return nil, codeErr
 				}
 				if err := submitCode(resolvedCode); err != nil {
-					return nil, twoFactorSubmitFailure(err, true)
+					return nil, twoFactorSubmitFailure(err, true, smsDelivery())
 				}
 				return session, nil
 			}
-			return nil, twoFactorSubmitFailure(err, false)
+			return nil, twoFactorSubmitFailure(err, false, smsDelivery())
 		}
 		return session, nil
 	}
@@ -988,6 +1008,11 @@ func resolveWebSession(ctx context.Context, appleID, password, twoFactorCode str
 	if err := webcore.SessionBackendConflict(); err != nil {
 		return nil, "", shared.UsageError(err.Error())
 	}
+	twoFactorPreference, err := twoFactorPreferenceForSignIn(ctx)
+	if err != nil {
+		return nil, "", err
+	}
+	ctx = contextWithTwoFactorPreference(ctx, twoFactorPreference)
 
 	resolvedAppleID := strings.TrimSpace(appleID)
 	// ASC_WEB_APPLE_ID sits between the flag and the cached-session default: it
@@ -1302,6 +1327,8 @@ func resolveWebSession(ctx context.Context, appleID, password, twoFactorCode str
 		// untimed parent context instead of an already-expired one.
 		loginCtx, cancel := shared.ContextWithTimeout(shared.ContextWithoutTimeout(ctx))
 		defer cancel()
+		// Stripping the timeout also drops values layered above it.
+		loginCtx = contextWithTwoFactorPreference(loginCtx, twoFactorPreference)
 		code := twoFactorCode
 		if twoFactorCodeConsumed {
 			code = ""
@@ -1502,6 +1529,7 @@ func WebAuthLoginCommand() *ffcli.Command {
 
 	appleID := fs.String("apple-id", "", "Apple Account email (defaults to "+webAppleIDEnv+", then the last or only cached session)")
 	twoFactorCodeCommand := fs.String("two-factor-code-command", "", "Shell command that prints the 2FA code to stdout if verification is required")
+	twoFactorDelivery := bindTwoFactorDeliveryFlags(fs)
 	providerID := fs.Int64("provider-id", 0, "Numeric App Store Connect provider ID to select for this web session")
 	publicProviderID := fs.String("public-provider-id", "", "Public App Store Connect provider/team ID to select for this web session")
 	output := shared.BindOutputFlags(fs)
@@ -1538,6 +1566,15 @@ Phone-code fallback (including SMS):
   - Apple then delivers a phone verification code and asc prompts again
   - automated: asc reruns the configured 2FA code command after phone fallback
 
+SMS delivery:
+  - --two-factor-method sms (or %s=sms) asks Apple to text the code to a
+    trusted phone number up front, even when trusted devices are available
+  - --two-factor-phone-id (or %s) selects the number when the account has several;
+    without it, asc fails and lists the available IDs
+  - asc requests the SMS before prompting or running the 2FA code command
+  - Apple may still show a sign-in alert on trusted devices; only the texted
+    code completes this sign-in
+
 Provider selection:
   - --public-provider-id selects the public App Store Connect provider/team ID
   - --provider-id selects Apple's numeric App Store Connect provider ID
@@ -1548,22 +1585,32 @@ Examples:
   asc web auth login --apple-id "user@example.com" --public-provider-id "Z4N6A5FQKW"
 
   # Non-interactive (agents, CI): supply the password and a 2FA code source
-  %s %s='osascript /path/to/get-apple-2fa-code.scpt' asc web auth login --apple-id "user@example.com"`,
+  %s %s='osascript /path/to/get-apple-2fa-code.scpt' asc web auth login --apple-id "user@example.com"
+
+  # Text the code to a trusted phone number instead of trusted devices
+  asc web auth login --apple-id "user@example.com" --two-factor-method sms --two-factor-code-command "/path/to/read-apple-sms-code"`,
 			webAppleIDEnv,
 			webPasswordEnvDisplay(),
 			webDontStorePasswordEnv,
 			webTwoFactorCodeCommandEnv,
+			webTwoFactorMethodEnv,
+			webTwoFactorPhoneIDEnv,
 			webPasswordEnvAssignmentExample(),
 			webTwoFactorCodeCommandEnv,
 		),
 		FlagSet:   fs,
 		UsageFunc: shared.DefaultUsageFunc,
 		Exec: func(ctx context.Context, args []string) error {
+			preference, err := twoFactorDelivery.resolve()
+			if err != nil {
+				return err
+			}
 			selection := webcore.ProviderSelection{
 				ProviderID:       *providerID,
 				PublicProviderID: *publicProviderID,
 			}
-			session, source, err := callResolveSessionForProviderSelection(contextForWebSignIn(ctx), *appleID, "", "", *twoFactorCodeCommand, selection)
+			signInCtx := contextWithTwoFactorPreference(contextForWebSignIn(ctx), preference)
+			session, source, err := callResolveSessionForProviderSelection(signInCtx, *appleID, "", "", *twoFactorCodeCommand, selection)
 			if err != nil {
 				return err
 			}

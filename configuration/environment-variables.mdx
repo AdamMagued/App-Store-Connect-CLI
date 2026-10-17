@@ -165,6 +165,26 @@ They do not replace `ASC_KEY_ID`, `ASC_ISSUER_ID`, or the other API credentials.
   requires an interactive terminal.
 </ParamField>
 
+<ParamField path="ASC_WEB_2FA_METHOD" type="string">
+  Two-factor code delivery for a fresh `asc web` login: `auto` or `sms`
+
+  `auto` (the default) keeps Apple's order: trusted devices first, with phone
+  fallback after a rejected trusted-device code. `sms` asks Apple to text the
+  code to a trusted phone number before prompting or running the 2FA code
+  command, even when trusted devices are available. `--two-factor-method` wins
+  when it is set, and any other value fails with a usage error before sign-in.
+</ParamField>
+
+<ParamField path="ASC_WEB_2FA_PHONE_ID" type="integer">
+  Trusted phone number ID used with `ASC_WEB_2FA_METHOD=sms` or
+  `--two-factor-method sms`
+
+  Needed only when the account has several trusted phone numbers; without it
+  such a login fails and lists the available IDs with their masked numbers.
+  `--two-factor-phone-id` wins when it is set. The value must be a positive
+  integer, and it is rejected unless SMS delivery is selected.
+</ParamField>
+
 <ParamField path="ASC_WEB_SESSION" type="string">
   Canonical `asc-web-session` JSON bundle supplied through the environment
 
