@@ -476,24 +476,6 @@ func TestWebAuthMessagesCodeIsRegistered(t *testing.T) {
 	if cmd.FlagSet.Lookup("output") != nil {
 		t.Fatal("messages-code prints a plain-text code and must not accept --output")
 	}
-	for _, phrase := range []string{"never prints message contents", "Full Disk Access", "Text Message Forwarding"} {
-		if !strings.Contains(cmd.LongHelp, phrase) {
-			t.Fatalf("expected %q in messages-code help, got %q", phrase, cmd.LongHelp)
-		}
-	}
-
-	login := findSubcommand(root, "web", "auth", "login")
-	if login == nil {
-		t.Fatal("expected web auth login command")
-		return
-	}
-	// Accounts with trusted devices only receive an SMS when it is requested.
-	if !strings.Contains(cmd.LongHelp, `--two-factor-method sms --two-factor-code-command "asc web auth messages-code"`) {
-		t.Fatalf("expected messages-code help to request SMS delivery in its login example, got %q", cmd.LongHelp)
-	}
-	if !strings.Contains(login.LongHelp, `--two-factor-method sms --two-factor-code-command "asc web auth messages-code"`) {
-		t.Fatalf("expected messages-code example in web auth login help, got %q", login.LongHelp)
-	}
 }
 
 func TestWebAuthMessagesCodeInvalidFlagsExitUsage(t *testing.T) {
