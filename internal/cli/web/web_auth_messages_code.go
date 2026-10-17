@@ -47,8 +47,7 @@ var (
 	messagesCodePollInterval time.Duration = 2 * time.Second
 
 	appleDomainBoundCodePattern   = regexp.MustCompile(`(?i)@apple\.com\s+#(\d{6})\b`)
-	appleMentionPattern           = regexp.MustCompile(`(?i)\bapple\b`)
-	standaloneSixDigitPattern     = regexp.MustCompile(`\b(\d{6})\b`)
+	appleVerificationCodePattern  = regexp.MustCompile(`(?i)\bapple\s+(?:account|id)\s+code\s+is:?\s*(\d{6})\b`)
 	foreignDomainBoundCodePattern = regexp.MustCompile(`@[A-Za-z0-9.-]+\s+#\d{6}\b`)
 	typedstreamNSStringMarker     = []byte("NSString")
 )
@@ -384,7 +383,8 @@ func appleCodeFromRow(row messagesRow) (string, bool) {
 
 // extractAppleVerificationCode returns the 6-digit code from an Apple
 // verification message. The domain-bound "@apple.com #123456" form wins;
-// otherwise the message must mention Apple and contain a standalone code.
+// otherwise the message must use Apple's "Apple Account/ID Code is" wording,
+// so other Apple messages that carry numbers are never mistaken for codes.
 func extractAppleVerificationCode(text string) (string, bool) {
 	if text == "" {
 		return "", false
@@ -392,15 +392,12 @@ func extractAppleVerificationCode(text string) (string, bool) {
 	if match := appleDomainBoundCodePattern.FindStringSubmatch(text); match != nil {
 		return match[1], true
 	}
-	if !appleMentionPattern.MatchString(text) {
-		return "", false
-	}
 	// A domain-bound code for another origin means the message belongs to
 	// that origin, even if it also mentions Apple.
 	if foreignDomainBoundCodePattern.MatchString(text) {
 		return "", false
 	}
-	if match := standaloneSixDigitPattern.FindStringSubmatch(text); match != nil {
+	if match := appleVerificationCodePattern.FindStringSubmatch(text); match != nil {
 		return match[1], true
 	}
 	return "", false

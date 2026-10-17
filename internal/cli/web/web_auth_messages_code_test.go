@@ -51,6 +51,9 @@ func TestExtractAppleVerificationCode(t *testing.T) {
 		{name: "other domain bound form ignored", text: "Your code is 445566\n\n@example.com #445566", ok: false},
 		{name: "apple message without code", text: "Your Apple Account was used to sign in.", ok: false},
 		{name: "longer numbers are not codes", text: "Apple reference 12345678", ok: false},
+		{name: "live macOS 26 wording", text: "Your Apple Account Code is: 908172. Don't share it with anyone.", want: "908172", ok: true},
+		{name: "apple mention with unrelated number ignored", text: "Apple order 123456 has shipped", ok: false},
+		{name: "apple store pickup number ignored", text: "Your Apple Store pickup code is ready: 246813", ok: false},
 		{name: "empty", text: "", ok: false},
 	}
 	for _, tt := range tests {
