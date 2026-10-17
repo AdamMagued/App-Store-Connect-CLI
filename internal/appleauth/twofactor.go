@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strconv"
 	"strings"
 )
 
@@ -50,6 +51,54 @@ func (e *TrustedPhoneSelectionError) Error() string {
 		return "multiple trusted phone numbers are available; select one by ID: " + strings.Join(options, ", ")
 	}
 	return fmt.Sprintf("trusted phone number ID %d is not available; select one by ID: %s", e.RequestedID, strings.Join(options, ", "))
+}
+
+type AmbiguousTrustedPhoneNumberError struct {
+	Available []TrustedPhoneNumber
+}
+
+func (e *AmbiguousTrustedPhoneNumberError) Error() string {
+	return (&TrustedPhoneSelectionError{Phones: e.Available}).Error()
+}
+
+func (e *AmbiguousTrustedPhoneNumberError) Unwrap() error {
+	if e == nil {
+		return nil
+	}
+	return &TrustedPhoneSelectionError{Phones: e.Available}
+}
+
+type TrustedPhoneNumberNotFoundError struct {
+	ID        int
+	Available []TrustedPhoneNumber
+}
+
+func (e *TrustedPhoneNumberNotFoundError) Error() string {
+	return (&TrustedPhoneSelectionError{RequestedID: e.ID, Phones: e.Available}).Error()
+}
+
+func (e *TrustedPhoneNumberNotFoundError) Unwrap() error {
+	if e == nil {
+		return nil
+	}
+	return &TrustedPhoneSelectionError{RequestedID: e.ID, Phones: e.Available}
+}
+
+func FormatAvailablePhoneNumbers(phones []TrustedPhoneNumber) string {
+	parts := make([]string, 0, len(phones))
+	for _, p := range phones {
+		dest := strings.TrimSpace(p.NumberWithDialCode)
+		if dest != "" {
+			parts = append(parts, fmt.Sprintf("%d (%s)", p.ID, dest))
+		} else {
+			parts = append(parts, strconv.Itoa(p.ID))
+		}
+	}
+	return strings.Join(parts, ", ")
+}
+
+type TwoFactorPhoneSelector interface {
+	SelectTwoFactorPhone(ctx context.Context, phones []TrustedPhoneNumber) (*TrustedPhoneNumber, error)
 }
 
 type UnsupportedTwoFactorMethodError struct {
@@ -197,7 +246,28 @@ func IsAppleAccountActionRequiredSigninComplete(status int, respBody []byte) boo
 	}
 }
 
+type TwoFactorSelectionState interface {
+	SessionState
+	RequestedTwoFactorMethod() string
+	RequestedTwoFactorPhoneID() int
+}
+
+type TwoFactorOptions struct {
+	Method      string
+	PhoneID     int
+	SelectPhone func(context.Context, []TrustedPhoneNumber) (*TrustedPhoneNumber, error)
+}
+
 func PrepareTwoFactorChallenge(ctx context.Context, session SessionState, getAuthOptions func(context.Context) (*AuthOptions, error)) (*TwoFactorChallenge, error) {
+	var opts TwoFactorOptions
+	if s, ok := session.(TwoFactorSelectionState); ok {
+		opts.Method = s.RequestedTwoFactorMethod()
+		opts.PhoneID = s.RequestedTwoFactorPhoneID()
+	}
+	return PrepareTwoFactorChallengeWithOptions(ctx, session, getAuthOptions, opts)
+}
+
+func PrepareTwoFactorChallengeWithOptions(ctx context.Context, session SessionState, getAuthOptions func(context.Context) (*AuthOptions, error), opts TwoFactorOptions) (*TwoFactorChallenge, error) {
 	if ctx == nil {
 		ctx = context.Background()
 	}
@@ -210,42 +280,48 @@ func PrepareTwoFactorChallenge(ctx context.Context, session SessionState, getAut
 		}, nil
 	}
 
-	opts, err := getAuthOptions(ctx)
+	pref := session.TwoFactorPreference()
+	requestedMethod := strings.ToLower(strings.TrimSpace(opts.Method))
+	if requestedMethod == "" {
+		requestedMethod = strings.ToLower(strings.TrimSpace(pref.Delivery))
+	}
+	switch requestedMethod {
+	case "", "sms", TwoFactorMethodPhone, TwoFactorMethodTrustedDevice:
+	default:
+		return nil, &UnsupportedTwoFactorMethodError{Method: opts.Method}
+	}
+
+	phoneID := opts.PhoneID
+	if phoneID == 0 {
+		phoneID = pref.PhoneID
+	}
+
+	authOpts, err := getAuthOptions(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	if session.TwoFactorPreference().Delivery == TwoFactorDeliverySMS {
-		phone, err := selectSMSPhone(opts.TrustedPhoneNumbers, session.TwoFactorPreference().PhoneID)
+	if authOpts.NoTrustedDevices && requestedMethod == TwoFactorMethodTrustedDevice {
+		return nil, fmt.Errorf("trusted-device verification requested, but account has no trusted devices")
+	}
+
+	if requestedMethod == "sms" || requestedMethod == TwoFactorMethodPhone {
+		if len(authOpts.TrustedPhoneNumbers) == 0 {
+			return nil, fmt.Errorf("sms verification is unavailable: %w", ErrNoTrustedPhoneNumbers)
+		}
+
+		selected, err := selectSMSPhoneWithSelector(ctx, session, authOpts.TrustedPhoneNumbers, phoneID, opts.SelectPhone)
 		if err != nil {
 			return nil, err
 		}
-		destination := strings.TrimSpace(phone.NumberWithDialCode)
-		session.SetPreparedTwoFactorState(TwoFactorMethodPhone, phone.ID, TwoFactorDeliverySMS, destination, false)
-		return &TwoFactorChallenge{
-			Method:      TwoFactorMethodPhone,
-			Destination: destination,
-		}, nil
-	}
 
-	phoneID := 0
-	phoneMode := ""
-	destination := ""
-	if len(opts.TrustedPhoneNumbers) > 0 {
-		phone := opts.TrustedPhoneNumbers[0]
-		phoneMode = strings.TrimSpace(phone.PushMode)
-		if phoneMode == "" {
+		phoneMode := strings.TrimSpace(selected.PushMode)
+		if phoneMode == "" || requestedMethod == "sms" {
 			phoneMode = "sms"
 		}
-		phoneID = phone.ID
-		destination = strings.TrimSpace(phone.NumberWithDialCode)
-	}
+		destination := strings.TrimSpace(selected.NumberWithDialCode)
 
-	if opts.NoTrustedDevices {
-		if phoneID == 0 {
-			return nil, ErrNoTrustedPhoneNumbers
-		}
-		session.SetPreparedTwoFactorState(TwoFactorMethodPhone, phoneID, phoneMode, destination, false)
+		session.SetPreparedTwoFactorState(TwoFactorMethodPhone, selected.ID, phoneMode, destination, false)
 		return &TwoFactorChallenge{
 			Method:                 TwoFactorMethodPhone,
 			Destination:            destination,
@@ -254,31 +330,86 @@ func PrepareTwoFactorChallenge(ctx context.Context, session SessionState, getAut
 		}, nil
 	}
 
-	session.SetPreparedTwoFactorState(TwoFactorMethodTrustedDevice, phoneID, phoneMode, destination, false)
+	fallbackPhoneID := 0
+	phoneMode := ""
+	destination := ""
+	if len(authOpts.TrustedPhoneNumbers) > 0 {
+		var fallbackPhone *TrustedPhoneNumber
+		if phoneID != 0 {
+			for i := range authOpts.TrustedPhoneNumbers {
+				if authOpts.TrustedPhoneNumbers[i].ID == phoneID {
+					fallbackPhone = &authOpts.TrustedPhoneNumbers[i]
+					break
+				}
+			}
+		}
+		if fallbackPhone == nil {
+			fallbackPhone = &authOpts.TrustedPhoneNumbers[0]
+		}
+		phoneMode = strings.TrimSpace(fallbackPhone.PushMode)
+		if phoneMode == "" {
+			phoneMode = "sms"
+		}
+		fallbackPhoneID = fallbackPhone.ID
+		destination = strings.TrimSpace(fallbackPhone.NumberWithDialCode)
+	}
+
+	if authOpts.NoTrustedDevices {
+		if fallbackPhoneID == 0 {
+			return nil, ErrNoTrustedPhoneNumbers
+		}
+		session.SetPreparedTwoFactorState(TwoFactorMethodPhone, fallbackPhoneID, phoneMode, destination, false)
+		return &TwoFactorChallenge{
+			Method:                 TwoFactorMethodPhone,
+			Destination:            destination,
+			Requested:              false,
+			PhoneFallbackAvailable: false,
+		}, nil
+	}
+
+	session.SetPreparedTwoFactorState(TwoFactorMethodTrustedDevice, fallbackPhoneID, phoneMode, destination, false)
 	return &TwoFactorChallenge{
 		Method:                 TwoFactorMethodTrustedDevice,
 		Destination:            destination,
 		Requested:              false,
-		PhoneFallbackAvailable: phoneID != 0,
+		PhoneFallbackAvailable: fallbackPhoneID != 0,
 	}, nil
 }
 
-func selectSMSPhone(phones []TrustedPhoneNumber, phoneID int) (TrustedPhoneNumber, error) {
+func selectSMSPhoneWithSelector(ctx context.Context, session SessionState, phones []TrustedPhoneNumber, phoneID int, selectFn func(context.Context, []TrustedPhoneNumber) (*TrustedPhoneNumber, error)) (TrustedPhoneNumber, error) {
 	if len(phones) == 0 {
 		return TrustedPhoneNumber{}, fmt.Errorf("sms verification is unavailable: %w", ErrNoTrustedPhoneNumbers)
 	}
-	if phoneID == 0 {
-		if len(phones) > 1 {
-			return TrustedPhoneNumber{}, &TrustedPhoneSelectionError{Phones: phones}
+	if phoneID != 0 {
+		for _, phone := range phones {
+			if phone.ID == phoneID {
+				return phone, nil
+			}
 		}
+		return TrustedPhoneNumber{}, &TrustedPhoneSelectionError{RequestedID: phoneID, Phones: phones}
+	}
+	if len(phones) == 1 {
 		return phones[0], nil
 	}
-	for _, phone := range phones {
-		if phone.ID == phoneID {
-			return phone, nil
+	if selectFn == nil {
+		if s, ok := session.(TwoFactorPhoneSelector); ok {
+			selectFn = s.SelectTwoFactorPhone
 		}
 	}
-	return TrustedPhoneNumber{}, &TrustedPhoneSelectionError{RequestedID: phoneID, Phones: phones}
+	if selectFn != nil {
+		chosen, err := selectFn(ctx, phones)
+		if err != nil {
+			return TrustedPhoneNumber{}, err
+		}
+		if chosen != nil {
+			return *chosen, nil
+		}
+	}
+	return TrustedPhoneNumber{}, &TrustedPhoneSelectionError{Phones: phones}
+}
+
+func selectSMSPhone(phones []TrustedPhoneNumber, phoneID int) (TrustedPhoneNumber, error) {
+	return selectSMSPhoneWithSelector(context.Background(), nil, phones, phoneID, nil)
 }
 
 func EnsureTwoFactorCodeRequested(ctx context.Context, session SessionState, getAuthOptions func(context.Context) (*AuthOptions, error), requestPhoneCode func(context.Context, int, string) error) (*TwoFactorChallenge, error) {

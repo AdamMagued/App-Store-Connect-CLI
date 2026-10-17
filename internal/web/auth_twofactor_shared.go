@@ -1,6 +1,7 @@
 package web
 
 import (
+	"context"
 	"errors"
 	"fmt"
 
@@ -8,6 +9,8 @@ import (
 )
 
 var _ appleauth.SessionState = (*AuthSession)(nil)
+var _ appleauth.TwoFactorSelectionState = (*AuthSession)(nil)
+var _ appleauth.TwoFactorPhoneSelector = (*AuthSession)(nil)
 
 func (s *AuthSession) TwoFactorMethod() string {
 	if s == nil {
@@ -57,6 +60,41 @@ func (s *AuthSession) SetTwoFactorPreference(preference appleauth.TwoFactorPrefe
 	s.twoFactorPreference = preference
 }
 
+func (s *AuthSession) RequestedTwoFactorMethod() string {
+	if s == nil {
+		return ""
+	}
+	return s.twoFactorPreference.Delivery
+}
+
+func (s *AuthSession) RequestedTwoFactorPhoneID() int {
+	if s == nil {
+		return 0
+	}
+	return s.twoFactorPreference.PhoneID
+}
+
+func (s *AuthSession) SetRequestedTwoFactor(method string, phoneID int) {
+	if s == nil {
+		return
+	}
+	s.twoFactorPreference = appleauth.TwoFactorPreference{Delivery: method, PhoneID: phoneID}
+}
+
+func (s *AuthSession) SetSelectPhone(fn func(context.Context, []appleauth.TrustedPhoneNumber) (*appleauth.TrustedPhoneNumber, error)) {
+	if s == nil {
+		return
+	}
+	s.selectPhoneFn = fn
+}
+
+func (s *AuthSession) SelectTwoFactorPhone(ctx context.Context, phones []appleauth.TrustedPhoneNumber) (*appleauth.TrustedPhoneNumber, error) {
+	if s == nil || s.selectPhoneFn == nil {
+		return nil, nil
+	}
+	return s.selectPhoneFn(ctx, phones)
+}
+
 func (s *AuthSession) SetPreparedTwoFactorState(method string, phoneID int, phoneMode, destination string, requested bool) {
 	if s == nil {
 		return
@@ -85,6 +123,14 @@ func wrapWebTwoFactorFlowError(err error) error {
 	var unsupported *appleauth.UnsupportedTwoFactorMethodError
 	var phoneSelection *appleauth.TrustedPhoneSelectionError
 	if errors.As(err, &unsupported) || errors.As(err, &phoneSelection) {
+		return fmt.Errorf("2fa failed: %w", err)
+	}
+	var ambiguous *appleauth.AmbiguousTrustedPhoneNumberError
+	if errors.As(err, &ambiguous) {
+		return fmt.Errorf("2fa failed: %w", err)
+	}
+	var notFound *appleauth.TrustedPhoneNumberNotFoundError
+	if errors.As(err, &notFound) {
 		return fmt.Errorf("2fa failed: %w", err)
 	}
 	return err

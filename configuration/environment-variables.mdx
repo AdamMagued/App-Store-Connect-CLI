@@ -180,7 +180,8 @@ They do not replace `ASC_KEY_ID`, `ASC_ISSUER_ID`, or the other API credentials.
   `--two-factor-method sms`
 
   Needed only when the account has several trusted phone numbers; without it
-  such a login fails and lists the available IDs with their masked numbers.
+  such a login prompts in an interactive terminal, or fails in non-interactive
+  environments and lists the available IDs with their masked numbers.
   `--two-factor-phone-id` wins when it is set. The value must be a positive
   integer, and it is rejected unless SMS delivery is selected.
 </ParamField>
