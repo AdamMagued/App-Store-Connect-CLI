@@ -814,6 +814,10 @@ func loginWithOptionalTwoFactorUsing(ctx context.Context, progressMessage, apple
 		session.SetTwoFactorPreference(twoFactorPreference)
 		challenge, prepErr := prepareTwoFactorChallengeFn(ctx, session)
 		if prepErr != nil {
+			var phoneSelection *appleauth.TrustedPhoneSelectionError
+			if errors.As(prepErr, &phoneSelection) {
+				return nil, fmt.Errorf("2fa challenge setup failed: %w; pass --two-factor-phone-id or set %s", prepErr, webTwoFactorPhoneIDEnv)
+			}
 			return nil, fmt.Errorf("2fa challenge setup failed: %w", prepErr)
 		}
 

@@ -102,6 +102,25 @@ func TestLoginWithOptionalTwoFactorRejectsInvalidEnvironmentBeforeSignIn(t *test
 	}
 }
 
+func TestLoginWithOptionalTwoFactorHintsPhoneIDForAmbiguousSMSPhone(t *testing.T) {
+	t.Setenv(webTwoFactorMethodEnv, "")
+	t.Setenv(webTwoFactorPhoneIDEnv, "")
+	stubTwoFactorDeliveryLogin(t)
+	prepareTwoFactorChallengeFn = func(ctx context.Context, session *webcore.AuthSession) (*webcore.TwoFactorChallenge, error) {
+		return nil, &appleauth.TrustedPhoneSelectionError{Phones: []appleauth.TrustedPhoneNumber{
+			{ID: 1, NumberWithDialCode: "+1 (•••) •••-••11"},
+			{ID: 2, NumberWithDialCode: "+1 (•••) •••-••22"},
+		}}
+	}
+	ctx := contextWithTwoFactorPreference(context.Background(), appleauth.TwoFactorPreference{Delivery: appleauth.TwoFactorDeliverySMS})
+
+	_, err := loginWithOptionalTwoFactor(ctx, "user@example.com", "secret", "", nil, readStubTwoFactorCode, "read-code")
+	want := "2fa challenge setup failed: multiple trusted phone numbers are available; select one by ID: 1 (+1 (•••) •••-••11), 2 (+1 (•••) •••-••22); pass --two-factor-phone-id or set " + webTwoFactorPhoneIDEnv
+	if err == nil || err.Error() != want {
+		t.Fatalf("unexpected error:\n got: %v\nwant: %s", err, want)
+	}
+}
+
 func TestResolveTwoFactorPreference(t *testing.T) {
 	tests := []struct {
 		name    string
