@@ -4,8 +4,10 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"runtime"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/rudrankriyam/App-Store-Connect-CLI/internal/appleauth"
 	"github.com/rudrankriyam/App-Store-Connect-CLI/internal/cli/shared"
@@ -188,5 +190,50 @@ func TestResolveTwoFactorPreference(t *testing.T) {
 				t.Fatalf("resolveTwoFactorPreference() = %+v, want %+v", got, tt.want)
 			}
 		})
+	}
+}
+
+func TestReadTwoFactorCodeFromCommandExportsCodeRequestTime(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("uses a POSIX shell command")
+	}
+	requestedAt := time.Date(2026, 10, 17, 21, 15, 43, 123000000, time.UTC)
+	ctx := contextWithTwoFactorCodeRequestedAt(context.Background(), requestedAt)
+
+	got, err := readTwoFactorCodeFromCommand(ctx, `printf %s "$`+webTwoFactorCodeRequestedAtEnv+`"`)
+	if err != nil {
+		t.Fatalf("readTwoFactorCodeFromCommand() error = %v", err)
+	}
+	if got != "2026-10-17T21:15:43.123Z" {
+		t.Fatalf("command saw %s=%q", webTwoFactorCodeRequestedAtEnv, got)
+	}
+}
+
+func TestLoginWithOptionalTwoFactorPassesCodeRequestTimeToCommand(t *testing.T) {
+	t.Setenv(webTwoFactorMethodEnv, "")
+	t.Setenv(webTwoFactorPhoneIDEnv, "")
+	stubTwoFactorDeliveryLogin(t)
+	var requestedSMSAt time.Time
+	ensureTwoFactorCodeRequestedFn = func(ctx context.Context, session *webcore.AuthSession) (*webcore.TwoFactorChallenge, error) {
+		requestedSMSAt = time.Now()
+		return &webcore.TwoFactorChallenge{Method: "phone", Requested: true}, nil
+	}
+	var (
+		seen   time.Time
+		seenOK bool
+	)
+	readCode := func(ctx context.Context, command string) (string, error) {
+		seen, seenOK = twoFactorCodeRequestedAt(ctx)
+		return "123456", nil
+	}
+
+	if _, err := loginWithOptionalTwoFactor(context.Background(), "user@example.com", "secret", "", nil, readCode, "read-code"); err != nil {
+		t.Fatalf("loginWithOptionalTwoFactor returned error: %v", err)
+	}
+	if !seenOK {
+		t.Fatal("expected the code command to receive the code request time")
+	}
+	if seen.After(requestedSMSAt) {
+		t.Fatalf("code request time %v is after the SMS request at %v", seen, requestedSMSAt)
 	}
 }

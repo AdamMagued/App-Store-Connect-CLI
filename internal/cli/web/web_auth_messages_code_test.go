@@ -310,6 +310,59 @@ func TestWebAuthMessagesCodePrintsOnlyCode(t *testing.T) {
 	}
 }
 
+func TestWebAuthMessagesCodeHonorsCodeRequestTime(t *testing.T) {
+	t.Run("ignores codes from before the request", func(t *testing.T) {
+		dbPath := tempMessagesDB(t)
+		requestedAt := time.Now().Add(-5 * time.Second)
+		t.Setenv(webTwoFactorCodeRequestedAtEnv, requestedAt.UTC().Format(time.RFC3339Nano))
+		calls := 0
+		messagesCodeTestHooks(t, "darwin", func(ctx context.Context, path, query string) ([]byte, error) {
+			calls++
+			out := messagesRowLine(1, messagesNanos(requestedAt.Add(-15*time.Second)), "Your Apple Account Code is: 111111.", nil) + "\n"
+			if calls > 1 {
+				out = messagesRowLine(2, messagesNanos(time.Now()), "Your Apple Account Code is: 222222.", nil) + "\n" + out
+			}
+			return []byte(out), nil
+		})
+
+		stdout, _, err := runMessagesCodeCommand(t, "--db", dbPath, "--timeout", "2s")
+		if err != nil {
+			t.Fatalf("Exec() error = %v", err)
+		}
+		if stdout != "222222\n" || calls < 2 {
+			t.Fatalf("stdout = %q after %d polls, want the code sent after the request", stdout, calls)
+		}
+	})
+
+	t.Run("explicit since wins", func(t *testing.T) {
+		dbPath := tempMessagesDB(t)
+		requestedAt := time.Now()
+		t.Setenv(webTwoFactorCodeRequestedAtEnv, requestedAt.UTC().Format(time.RFC3339Nano))
+		messagesCodeTestHooks(t, "darwin", func(ctx context.Context, path, query string) ([]byte, error) {
+			return []byte(messagesRowLine(1, messagesNanos(requestedAt.Add(-20*time.Second)), "Your Apple Account Code is: 333333.", nil) + "\n"), nil
+		})
+
+		stdout, _, err := runMessagesCodeCommand(t, "--db", dbPath, "--timeout", "2s", "--since", "1m")
+		if err != nil || stdout != "333333\n" {
+			t.Fatalf("stdout = %q, err = %v, want the code inside the explicit lookback", stdout, err)
+		}
+	})
+
+	t.Run("invalid request time fails", func(t *testing.T) {
+		dbPath := tempMessagesDB(t)
+		t.Setenv(webTwoFactorCodeRequestedAtEnv, "yesterday")
+		messagesCodeTestHooks(t, "darwin", func(ctx context.Context, path, query string) ([]byte, error) {
+			t.Fatal("expected no database read with an invalid request time")
+			return nil, nil
+		})
+
+		_, _, err := runMessagesCodeCommand(t, "--db", dbPath, "--timeout", "2s")
+		if err == nil || !strings.Contains(err.Error(), webTwoFactorCodeRequestedAtEnv+" must be an RFC 3339 timestamp") {
+			t.Fatalf("error = %v, want invalid request time error", err)
+		}
+	})
+}
+
 func TestWebAuthMessagesCodeTimesOut(t *testing.T) {
 	dbPath := tempMessagesDB(t)
 	messagesCodeTestHooks(t, "darwin", func(ctx context.Context, path, query string) ([]byte, error) {

@@ -31,6 +31,8 @@ const (
 	// Apple verification codes expire within minutes, and a short window keeps
 	// every candidate inside the newest-rows query limit.
 	messagesCodeMaxSince = 10 * time.Minute
+	// Allow for clock skew between asc's request and Messages' receipt time.
+	messagesCodeRequestSkew = 2 * time.Second
 	// The login flow kills its 2FA code command after webTwoFactorCommandTimeout,
 	// so the default poll budget stays below it to surface this command's own,
 	// clearer timeout error instead of a generic interruption.
@@ -88,7 +90,9 @@ How it works:
   - accepts only incoming Apple verification messages (for example
     "Your Apple Account code is: 123456 ... @apple.com #123456") received within
     --since (at most 10m) of when the command starts, so stale codes are never
-    returned.
+    returned. When "asc web auth login" runs it, only codes received after asc
+    requested the current code are accepted (from ASC_WEB_2FA_CODE_REQUESTED_AT);
+    an explicit --since overrides that.
   - polls until a matching message arrives or --timeout elapses. The login
     flow stops its 2FA code command after 60s, so keep --timeout below that.
 
@@ -137,8 +141,29 @@ Examples:
 				return fmt.Errorf("web auth messages-code: %w", err)
 			}
 
+			sinceSet := false
+			fs.Visit(func(f *flag.Flag) {
+				if f.Name == "since" {
+					sinceSet = true
+				}
+			})
 			start := time.Now()
-			code, err := waitForAppleMessagesCode(ctx, resolvedDB, start.Add(-*since), *since, *timeout)
+			cutoff := start.Add(-*since)
+			window := fmt.Sprintf("received up to %s before start", *since)
+			// Run by "asc web auth login", accept only codes sent after the
+			// current request so a code from an earlier attempt is never reused.
+			if raw := strings.TrimSpace(os.Getenv(webTwoFactorCodeRequestedAtEnv)); raw != "" && !sinceSet {
+				requestedAt, err := time.Parse(time.RFC3339Nano, raw)
+				if err != nil {
+					return fmt.Errorf("web auth messages-code: %s must be an RFC 3339 timestamp", webTwoFactorCodeRequestedAtEnv)
+				}
+				cutoff = requestedAt.Add(-messagesCodeRequestSkew)
+				if oldest := start.Add(-messagesCodeMaxSince); cutoff.Before(oldest) {
+					cutoff = oldest
+				}
+				window = "received since asc requested the code"
+			}
+			code, err := waitForAppleMessagesCode(ctx, resolvedDB, cutoff, window, *timeout)
 			if err != nil {
 				return fmt.Errorf("web auth messages-code: %w", err)
 			}
@@ -182,12 +207,12 @@ func resolveMessagesDBPath(raw string) (string, error) {
 	return abs, nil
 }
 
-func waitForAppleMessagesCode(ctx context.Context, dbPath string, cutoff time.Time, since, timeout time.Duration) (string, error) {
+func waitForAppleMessagesCode(ctx context.Context, dbPath string, cutoff time.Time, window string, timeout time.Duration) (string, error) {
 	pollCtx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
 	query := messagesCodeQuery(cutoff)
-	timeoutErr := fmt.Errorf("no Apple verification code found in Messages within %s (accepting messages received up to %s before start); check that the code was sent by SMS and that iPhone Text Message Forwarding is enabled for this Mac", timeout, since)
+	timeoutErr := fmt.Errorf("no Apple verification code found in Messages within %s (accepting messages %s); check that the code was sent by SMS and that iPhone Text Message Forwarding is enabled for this Mac", timeout, window)
 
 	for {
 		out, err := messagesCodeQueryFn(pollCtx, dbPath, query)
