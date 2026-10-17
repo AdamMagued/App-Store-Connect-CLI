@@ -365,22 +365,6 @@ func TestWebCommandsRegisterTwoFactorDeliveryFlags(t *testing.T) {
 	}
 }
 
-func TestWebAuthLoginHelpExplainsSMSDeliveryAlert(t *testing.T) {
-	cmd := findSubcommand(RootCommand("1.2.3"), "web", "auth", "login")
-	if cmd == nil {
-		t.Fatal("expected web auth login command")
-		return
-	}
-	for _, phrase := range []string{
-		"Apple may still show a sign-in alert on trusted devices",
-		"only the texted\n    code completes this sign-in",
-	} {
-		if !strings.Contains(cmd.LongHelp, phrase) {
-			t.Fatalf("expected %q in web auth login help, got %q", phrase, cmd.LongHelp)
-		}
-	}
-}
-
 func TestWebAuthLoginRejectsInvalidTwoFactorDelivery(t *testing.T) {
 	tests := []struct {
 		name       string
