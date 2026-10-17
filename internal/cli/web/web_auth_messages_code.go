@@ -254,6 +254,9 @@ func messagesCodeQuery(cutoff time.Time) string {
 	return fmt.Sprintf(
 		"SELECT ROWID, date, hex(text), hex(attributedBody) FROM message "+
 			"WHERE is_from_me = 0 AND (date >= %d OR (date < %d AND date >= %d)) "+
+			// Filter for Apple before the row limit, so busy chats cannot
+			// push a code out of the newest rows.
+			"AND (text LIKE '%%apple%%' OR instr(attributedBody, CAST('Apple' AS BLOB)) > 0 OR instr(attributedBody, CAST('apple' AS BLOB)) > 0) "+
 			"ORDER BY date DESC, ROWID DESC LIMIT %d;",
 		nanos, messagesSecondsThreshold, seconds, messagesCodeRowLimit,
 	)

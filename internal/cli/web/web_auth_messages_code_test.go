@@ -226,6 +226,8 @@ func TestMessagesCodeQueryUsesOnlyIntegerCutoffs(t *testing.T) {
 		fmt.Sprintf("date >= %d", nanos),
 		fmt.Sprintf("date >= %d", seconds),
 		"hex(attributedBody)",
+		"text LIKE '%apple%'",
+		"instr(attributedBody, CAST('Apple' AS BLOB)) > 0",
 		"ORDER BY date DESC",
 	} {
 		if !strings.Contains(query, want) {
@@ -461,6 +463,10 @@ func TestWebAuthMessagesCodeReadsRealSQLiteDatabase(t *testing.T) {
 		fmt.Sprintf("INSERT INTO message (text, attributedBody, date, is_from_me) VALUES ('Your Apple ID Code is: 999000', NULL, %d, 1);", messagesNanos(now)),
 		fmt.Sprintf("INSERT INTO message (text, attributedBody, date, is_from_me) VALUES ('Your Acme code is 123123', NULL, %d, 0);", messagesNanos(now)),
 	}, "\n")
+	// Busy chats newer than the code must not push it out of the row limit.
+	for i := 0; i < messagesCodeRowLimit+10; i++ {
+		script += fmt.Sprintf("\nINSERT INTO message (text, attributedBody, date, is_from_me) VALUES ('group chat %d', NULL, %d, 0);", i, messagesNanos(now.Add(-time.Second)))
+	}
 	create := exec.Command(sqlitePath, dbPath)
 	create.Stdin = strings.NewReader(script)
 	if out, err := create.CombinedOutput(); err != nil {
