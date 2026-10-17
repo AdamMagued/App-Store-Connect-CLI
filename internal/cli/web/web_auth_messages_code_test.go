@@ -415,6 +415,7 @@ func TestWebAuthMessagesCodeFlagValidation(t *testing.T) {
 		wantErr string
 	}{
 		{name: "zero since", args: []string{"--since", "0s"}, wantErr: "--since must be a positive duration"},
+		{name: "since too long", args: []string{"--since", "24h"}, wantErr: "--since must be at most 10m0s"},
 		{name: "negative timeout", args: []string{"--timeout", "-1s"}, wantErr: "--timeout must be a positive duration"},
 		{name: "blank db", args: []string{"--db", "  "}, wantErr: "--db must not be empty"},
 		{name: "unexpected argument", args: []string{"extra"}, wantErr: "unexpected argument"},

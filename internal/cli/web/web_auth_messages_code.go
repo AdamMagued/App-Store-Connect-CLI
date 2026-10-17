@@ -28,6 +28,9 @@ import (
 
 const (
 	messagesCodeDefaultSince = time.Minute
+	// Apple verification codes expire within minutes, and a short window keeps
+	// every candidate inside the newest-rows query limit.
+	messagesCodeMaxSince = 10 * time.Minute
 	// The login flow kills its 2FA code command after webTwoFactorCommandTimeout,
 	// so the default poll budget stays below it to surface this command's own,
 	// clearer timeout error instead of a generic interruption.
@@ -58,7 +61,7 @@ func WebAuthMessagesCodeCommand() *ffcli.Command {
 	fs := flag.NewFlagSet("web auth messages-code", flag.ExitOnError)
 
 	dbPath := fs.String("db", "", "Path to the Messages database (default ~/Library/Messages/chat.db)")
-	since := fs.Duration("since", messagesCodeDefaultSince, "Only accept messages received within this lookback from when the command starts")
+	since := fs.Duration("since", messagesCodeDefaultSince, "Only accept messages received within this lookback from when the command starts (at most 10m)")
 	timeout := fs.Duration("timeout", messagesCodeDefaultTimeout, "How long to wait for a matching message before failing")
 
 	return &ffcli.Command{
@@ -84,7 +87,8 @@ How it works:
     system /usr/bin/sqlite3.
   - accepts only incoming Apple verification messages (for example
     "Your Apple Account code is: 123456 ... @apple.com #123456") received within
-    --since of when the command starts, so stale codes are never returned.
+    --since (at most 10m) of when the command starts, so stale codes are never
+    returned.
   - polls until a matching message arrives or --timeout elapses. The login
     flow stops its 2FA code command after 60s, so keep --timeout below that.
 
@@ -105,6 +109,9 @@ Examples:
 			}
 			if *since <= 0 {
 				return shared.UsageError("--since must be a positive duration")
+			}
+			if *since > messagesCodeMaxSince {
+				return shared.UsageErrorf("--since must be at most %s", messagesCodeMaxSince)
 			}
 			if *timeout <= 0 {
 				return shared.UsageError("--timeout must be a positive duration")

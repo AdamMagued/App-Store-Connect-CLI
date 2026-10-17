@@ -509,6 +509,7 @@ func TestWebAuthMessagesCodeInvalidFlagsExitUsage(t *testing.T) {
 		wantErr string
 	}{
 		{name: "non-positive since", args: []string{"--since", "0s"}, wantErr: "Error: --since must be a positive duration"},
+		{name: "since too long", args: []string{"--since", "11m"}, wantErr: "Error: --since must be at most 10m0s"},
 		{name: "non-positive timeout", args: []string{"--timeout", "0s"}, wantErr: "Error: --timeout must be a positive duration"},
 		{name: "unparseable timeout", args: []string{"--timeout", "soon"}, wantErr: "invalid value"},
 		{name: "positional argument", args: []string{"now"}, wantErr: `Error: unexpected argument "now"`},
