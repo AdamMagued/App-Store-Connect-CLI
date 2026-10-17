@@ -185,6 +185,15 @@ They do not replace `ASC_KEY_ID`, `ASC_ISSUER_ID`, or the other API credentials.
   integer, and it is rejected unless SMS delivery is selected.
 </ParamField>
 
+<ParamField path="ASC_WEB_2FA_CODE_REQUESTED_AT" type="string">
+  Set by `asc` for the 2FA code command: when it asked Apple for the current
+  code, as an RFC 3339 timestamp in UTC
+
+  You do not set this yourself. A code command can use it to ignore codes from
+  earlier sign-in attempts; `asc web auth messages-code` accepts only messages
+  received after it unless `--since` is passed.
+</ParamField>
+
 <ParamField path="ASC_WEB_SESSION" type="string">
   Canonical `asc-web-session` JSON bundle supplied through the environment
 

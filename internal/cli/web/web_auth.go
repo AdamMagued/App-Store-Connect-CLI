@@ -29,8 +29,11 @@ const (
 	webAppleIDEnv              = "ASC_WEB_APPLE_ID"
 	webDontStorePasswordEnv    = "ASC_WEB_DONT_STORE_PASSWORD"
 	webTwoFactorCodeCommandEnv = "ASC_WEB_2FA_CODE_COMMAND"
-	webTwoFactorCommandTimeout = 60 * time.Second
-	passwordReadPollInterval   = 100 * time.Millisecond
+	// webTwoFactorCodeRequestedAtEnv tells the 2FA code command when asc asked
+	// Apple for the current code, so it can ignore codes from earlier attempts.
+	webTwoFactorCodeRequestedAtEnv = "ASC_WEB_2FA_CODE_REQUESTED_AT"
+	webTwoFactorCommandTimeout     = 60 * time.Second
+	passwordReadPollInterval       = 100 * time.Millisecond
 )
 
 func webPasswordEnvDisplay() string {
@@ -420,11 +423,26 @@ func twoFactorCodeCommandShellArgs(command string) []string {
 	return []string{"-c", command}
 }
 
+type twoFactorCodeRequestedAtContextKey struct{}
+
+// contextWithTwoFactorCodeRequestedAt records when asc asked Apple for the code
+// the next 2FA code command run should return.
+func contextWithTwoFactorCodeRequestedAt(ctx context.Context, requestedAt time.Time) context.Context {
+	return context.WithValue(ctx, twoFactorCodeRequestedAtContextKey{}, requestedAt)
+}
+
+func twoFactorCodeRequestedAt(ctx context.Context) (time.Time, bool) {
+	requestedAt, ok := ctx.Value(twoFactorCodeRequestedAtContextKey{}).(time.Time)
+	return requestedAt, ok
+}
+
 func readTwoFactorCodeFromCommand(ctx context.Context, command string) (string, error) {
 	command = strings.TrimSpace(command)
 	if command == "" {
 		return "", fmt.Errorf("2fa required: empty 2fa code command")
 	}
+	// Read before the timeout strip below, which drops layered context values.
+	requestedAt, hasRequestedAt := twoFactorCodeRequestedAt(ctx)
 
 	commandCtx, cancel := shared.ContextWithResolvedTimeout(shared.ContextWithoutTimeout(ctx), webTwoFactorCommandTimeout)
 	defer cancel()
@@ -435,6 +453,9 @@ func readTwoFactorCodeFromCommand(ctx context.Context, command string) (string, 
 		cmd = exec.CommandContext(commandCtx, "/bin/sh", twoFactorCodeCommandShellArgs(command)...)
 	}
 
+	if hasRequestedAt {
+		cmd.Env = append(os.Environ(), webTwoFactorCodeRequestedAtEnv+"="+requestedAt.UTC().Format(time.RFC3339Nano))
+	}
 	output, err := cmd.Output()
 	if err != nil {
 		if ctxErr := commandCtx.Err(); ctxErr != nil {
@@ -495,6 +516,10 @@ func readRotatedTwoFactorCodeFromCommand(ctx context.Context, command, consumed 
 	waitCtx := shared.ContextWithoutTimeout(ctx)
 	rotationCtx, cancel := context.WithTimeout(waitCtx, webTwoFactorCodeRotationTimeout)
 	defer cancel()
+	// Stripping the timeout also drops the code request time layered above it.
+	if requestedAt, ok := twoFactorCodeRequestedAt(ctx); ok {
+		rotationCtx = contextWithTwoFactorCodeRequestedAt(rotationCtx, requestedAt)
+	}
 	rotationExhausted := func() error {
 		return fmt.Errorf("2fa required: the configured two-factor code command did not produce a code other than the one the expired session already consumed within %s: wait for it to produce a new code, then re-run", webTwoFactorCodeRotationTimeout)
 	}
@@ -855,13 +880,14 @@ func loginWithOptionalTwoFactorUsing(ctx context.Context, progressMessage, apple
 			}
 			_, _ = fmt.Fprintln(twoFactorStatusWriter, "Need a phone verification code? Enter an incorrect trusted-device code once; Apple will then deliver a verification code to your registered phone number.")
 		}
+		codeRequestedAt := time.Now()
 		readCode := func() (string, error) {
 			if command != "" {
 				read := readTwoFactorCodeFromCommandFn
 				if readCommandCode != nil {
 					read = readCommandCode
 				}
-				code, err := read(ctx, command)
+				code, err := read(contextWithTwoFactorCodeRequestedAt(ctx, codeRequestedAt), command)
 				if err != nil {
 					return "", twoFactorInputError(err, shared.DiagnosticDependencyFailed)
 				}
@@ -878,6 +904,7 @@ func loginWithOptionalTwoFactorUsing(ctx context.Context, progressMessage, apple
 				writeInitialPhoneFallbackGuidance()
 			}
 			if challenge != nil && challenge.IsPhoneMethod() {
+				codeRequestedAt = time.Now()
 				challenge, prepErr = ensureTwoFactorCodeRequestedFn(ctx, session)
 				if prepErr != nil {
 					return nil, fmt.Errorf("2fa challenge setup failed: %w", prepErr)
@@ -903,11 +930,15 @@ func loginWithOptionalTwoFactorUsing(ctx context.Context, progressMessage, apple
 		smsDelivery := func() bool {
 			return session.TwoFactorMethod() == appleauth.TwoFactorMethodPhone && session.TwoFactorPhoneMode() == appleauth.TwoFactorDeliverySMS
 		}
+		// A rejected trusted-device code makes Apple send a phone code during
+		// this submission, so a fallback read must ignore anything older.
+		submittedAt := time.Now()
 		if err := submitCode(code); err != nil {
 			var phoneCodeRequestedErr *appleauth.PhoneCodeRequestedError
 			if errors.As(err, &phoneCodeRequestedErr) {
 				writeDeliveryNotice(phoneCodeRequestedErr.Destination)
 				writeFallbackGuidance(command != "")
+				codeRequestedAt = submittedAt
 				resolvedCode, codeErr := readCode()
 				if codeErr != nil {
 					return nil, codeErr
@@ -1513,6 +1544,7 @@ Manage Apple web-session authentication used by "asc web" commands.
 			WebAuthLoginCommand(),
 			WebAuthStatusCommand(),
 			WebAuthCapabilitiesCommand(),
+			WebAuthMessagesCodeCommand(),
 			WebAuthExportCommand(),
 			WebAuthImportCommand(),
 			WebAuthLogoutCommand(),
@@ -1588,7 +1620,10 @@ Examples:
   %s %s='osascript /path/to/get-apple-2fa-code.scpt' asc web auth login --apple-id "user@example.com"
 
   # Text the code to a trusted phone number instead of trusted devices
-  asc web auth login --apple-id "user@example.com" --two-factor-method sms --two-factor-code-command "/path/to/read-apple-sms-code"`,
+  asc web auth login --apple-id "user@example.com" --two-factor-method sms --two-factor-code-command "/path/to/read-apple-sms-code"
+
+  # macOS: read an SMS code forwarded to this Mac's Messages app
+  asc web auth login --apple-id "user@example.com" --two-factor-method sms --two-factor-code-command "asc web auth messages-code"`,
 			webAppleIDEnv,
 			webPasswordEnvDisplay(),
 			webDontStorePasswordEnv,
