@@ -97,9 +97,11 @@ Setup:
     agent host) in System Settings > Privacy & Security > Full Disk Access.
   - SMS codes reach the Mac only when the iPhone forwards them: enable
     Settings > Messages > Text Message Forwarding on the iPhone.
+  - accounts with trusted devices get an SMS only when the login asks for one:
+    pass --two-factor-method sms to "asc web auth login".
 
 Examples:
-  asc web auth login --apple-id "user@example.com" --two-factor-code-command "asc web auth messages-code"
+  asc web auth login --apple-id "user@example.com" --two-factor-method sms --two-factor-code-command "asc web auth messages-code"
   asc web auth messages-code --since 2m --timeout 45s`,
 		FlagSet:   fs,
 		UsageFunc: shared.DefaultUsageFunc,

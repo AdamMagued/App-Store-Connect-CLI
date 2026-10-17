@@ -1588,7 +1588,7 @@ Examples:
   asc web auth login --apple-id "user@example.com" --two-factor-method sms --two-factor-code-command "/path/to/read-apple-sms-code"
 
   # macOS: read an SMS code forwarded to this Mac's Messages app
-  asc web auth login --apple-id "user@example.com" --two-factor-code-command "asc web auth messages-code"`,
+  asc web auth login --apple-id "user@example.com" --two-factor-method sms --two-factor-code-command "asc web auth messages-code"`,
 			webAppleIDEnv,
 			webPasswordEnvDisplay(),
 			webDontStorePasswordEnv,

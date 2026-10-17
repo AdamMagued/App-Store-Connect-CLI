@@ -497,7 +497,11 @@ func TestWebAuthMessagesCodeIsRegistered(t *testing.T) {
 		t.Fatal("expected web auth login command")
 		return
 	}
-	if !strings.Contains(login.LongHelp, `--two-factor-code-command "asc web auth messages-code"`) {
+	// Accounts with trusted devices only receive an SMS when it is requested.
+	if !strings.Contains(cmd.LongHelp, `--two-factor-method sms --two-factor-code-command "asc web auth messages-code"`) {
+		t.Fatalf("expected messages-code help to request SMS delivery in its login example, got %q", cmd.LongHelp)
+	}
+	if !strings.Contains(login.LongHelp, `--two-factor-method sms --two-factor-code-command "asc web auth messages-code"`) {
 		t.Fatalf("expected messages-code example in web auth login help, got %q", login.LongHelp)
 	}
 }
