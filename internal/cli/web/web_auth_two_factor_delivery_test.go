@@ -144,7 +144,7 @@ func TestResolveTwoFactorPreference(t *testing.T) {
 			for key, value := range tt.env {
 				t.Setenv(key, value)
 			}
-			got, err := resolveTwoFactorPreference(tt.method, tt.phoneID)
+			got, err := resolveTwoFactorPreference(tt.method, tt.phoneID, tt.phoneID != 0)
 			if err != nil {
 				t.Fatalf("resolveTwoFactorPreference() error = %v", err)
 			}

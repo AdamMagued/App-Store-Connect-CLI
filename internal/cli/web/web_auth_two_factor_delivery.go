@@ -19,12 +19,14 @@ const (
 
 // twoFactorDeliveryFlags selects how Apple delivers the verification code.
 type twoFactorDeliveryFlags struct {
+	flagSet *flag.FlagSet
 	method  *string
 	phoneID *int
 }
 
 func bindTwoFactorDeliveryFlags(fs *flag.FlagSet) twoFactorDeliveryFlags {
 	return twoFactorDeliveryFlags{
+		flagSet: fs,
 		method:  fs.String("two-factor-method", "", "2FA code delivery: auto (trusted devices first) or sms (text a trusted phone number); defaults to "+webTwoFactorMethodEnv+", then auto"),
 		phoneID: fs.Int("two-factor-phone-id", 0, "Trusted phone number ID for --two-factor-method sms when the account has several; defaults to "+webTwoFactorPhoneIDEnv),
 	}
@@ -41,10 +43,20 @@ func (f twoFactorDeliveryFlags) resolve() (appleauth.TwoFactorPreference, error)
 	if f.phoneID != nil {
 		phoneID = *f.phoneID
 	}
-	return resolveTwoFactorPreference(method, phoneID)
+	// An explicit --two-factor-phone-id 0 must fail rather than fall back to
+	// the environment or the only trusted number.
+	phoneIDSet := false
+	if f.flagSet != nil {
+		f.flagSet.Visit(func(fl *flag.Flag) {
+			if fl.Name == "two-factor-phone-id" {
+				phoneIDSet = true
+			}
+		})
+	}
+	return resolveTwoFactorPreference(method, phoneID, phoneIDSet)
 }
 
-func resolveTwoFactorPreference(methodFlag string, phoneIDFlag int) (appleauth.TwoFactorPreference, error) {
+func resolveTwoFactorPreference(methodFlag string, phoneIDFlag int, phoneIDFlagSet bool) (appleauth.TwoFactorPreference, error) {
 	method := strings.ToLower(strings.TrimSpace(methodFlag))
 	methodSource := "--two-factor-method"
 	if method == "" {
@@ -59,7 +71,7 @@ func resolveTwoFactorPreference(methodFlag string, phoneIDFlag int) (appleauth.T
 
 	phoneID := phoneIDFlag
 	phoneIDSource := "--two-factor-phone-id"
-	if phoneID < 0 {
+	if phoneID < 0 || (phoneIDFlagSet && phoneID == 0) {
 		return appleauth.TwoFactorPreference{}, shared.UsageError(phoneIDSource + " must be a positive trusted phone number ID")
 	}
 	if phoneID == 0 {
@@ -96,5 +108,5 @@ func twoFactorPreferenceForSignIn(ctx context.Context) (appleauth.TwoFactorPrefe
 	if preference, ok := ctx.Value(twoFactorPreferenceContextKey{}).(appleauth.TwoFactorPreference); ok {
 		return preference, nil
 	}
-	return resolveTwoFactorPreference("", 0)
+	return resolveTwoFactorPreference("", 0, false)
 }

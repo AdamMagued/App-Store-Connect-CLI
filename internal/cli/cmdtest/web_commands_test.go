@@ -410,6 +410,12 @@ func TestWebAuthLoginRejectsInvalidTwoFactorDelivery(t *testing.T) {
 			wantStderr: "Error: --two-factor-phone-id requires --two-factor-method sms",
 		},
 		{
+			name:       "explicit zero phone id",
+			args:       []string{"--two-factor-method", "sms", "--two-factor-phone-id", "0"},
+			env:        map[string]string{"ASC_WEB_2FA_PHONE_ID": "2"},
+			wantStderr: "Error: --two-factor-phone-id must be a positive trusted phone number ID",
+		},
+		{
 			name:       "negative phone id",
 			args:       []string{"--two-factor-method", "sms", "--two-factor-phone-id", "-1"},
 			wantStderr: "Error: --two-factor-phone-id must be a positive trusted phone number ID",
