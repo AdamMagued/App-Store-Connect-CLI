@@ -469,16 +469,10 @@ func classifyTwoFactorChallengeSetupError(err error) error {
 	}
 	prefix := "2fa challenge setup failed: "
 	msg := err.Error()
-	if strings.HasPrefix(msg, "2fa failed: ") {
-		msg = strings.TrimPrefix(msg, "2fa failed: ")
-	}
-	if strings.HasPrefix(msg, prefix) {
-		msg = strings.TrimPrefix(msg, prefix)
-	}
+	msg = strings.TrimPrefix(msg, "2fa failed: ")
+	msg = strings.TrimPrefix(msg, prefix)
 	hintSuffix := "; pass --two-factor-phone-id or set " + webTwoFactorPhoneIDEnv
-	if strings.HasSuffix(msg, hintSuffix) {
-		msg = strings.TrimSuffix(msg, hintSuffix)
-	}
+	msg = strings.TrimSuffix(msg, hintSuffix)
 	var phoneSelection *appleauth.TrustedPhoneSelectionError
 	if errors.As(err, &phoneSelection) {
 		fullErr := fmt.Errorf("%s%s%s", prefix, msg, hintSuffix)

@@ -8,9 +8,11 @@ import (
 	"github.com/rudrankriyam/App-Store-Connect-CLI/internal/appleauth"
 )
 
-var _ appleauth.SessionState = (*AuthSession)(nil)
-var _ appleauth.TwoFactorSelectionState = (*AuthSession)(nil)
-var _ appleauth.TwoFactorPhoneSelector = (*AuthSession)(nil)
+var (
+	_ appleauth.SessionState            = (*AuthSession)(nil)
+	_ appleauth.TwoFactorSelectionState = (*AuthSession)(nil)
+	_ appleauth.TwoFactorPhoneSelector  = (*AuthSession)(nil)
+)
 
 func (s *AuthSession) TwoFactorMethod() string {
 	if s == nil {

@@ -408,10 +408,6 @@ func selectSMSPhoneWithSelector(ctx context.Context, session SessionState, phone
 	return TrustedPhoneNumber{}, &TrustedPhoneSelectionError{Phones: phones}
 }
 
-func selectSMSPhone(phones []TrustedPhoneNumber, phoneID int) (TrustedPhoneNumber, error) {
-	return selectSMSPhoneWithSelector(context.Background(), nil, phones, phoneID, nil)
-}
-
 func EnsureTwoFactorCodeRequested(ctx context.Context, session SessionState, getAuthOptions func(context.Context) (*AuthOptions, error), requestPhoneCode func(context.Context, int, string) error) (*TwoFactorChallenge, error) {
 	challenge, err := PrepareTwoFactorChallenge(ctx, session, getAuthOptions)
 	if err != nil {

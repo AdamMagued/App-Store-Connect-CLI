@@ -535,7 +535,7 @@ type stubSelectionSessionState struct {
 }
 
 func (s *stubSelectionSessionState) RequestedTwoFactorMethod() string { return s.requestedMethod }
-func (s *stubSelectionSessionState) RequestedTwoFactorPhoneID() int { return s.requestedPhoneID }
+func (s *stubSelectionSessionState) RequestedTwoFactorPhoneID() int   { return s.requestedPhoneID }
 
 func TestPrepareTwoFactorChallengeExplicitSMS(t *testing.T) {
 	session := &stubSelectionSessionState{}
